@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Paper Library — Persona OS</title>
+<meta name="description" content="A retro desktop-style library for academic papers — read, rate, annotate. Single-file static site.">
+<meta name="theme-color" content="#09080a">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Paper Library — Persona OS">
+<meta property="og:url" content="https://internetpersona.net">
+<link rel="canonical" href="https://internetpersona.net/">
+<meta property="og:description" content="A retro desktop-style library for academic papers — read, rate, annotate.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Paper Library — Persona OS">
+<meta name="twitter:description" content="A retro desktop-style library for academic papers.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<style>
+:root {
+  --desk:      #09080a;
+  --desk-line: #131118;
+  --win-bg:    #f3e8cc;
+  --win-parch: #ede0bc;
+  --win-bdr:   #1a1008;
+  --tb-from:   #1c120a;
+  --tb-to:     #0e0a06;
+  --tb-txt:    #e8c060;
+  --btn:       #d8c8a0;
+  --btn-hi:    #f0e4c0;
+  --btn-sh:    #7a6030;
+  --text:      #1e1408;
+  --muted:     #5a4828;
+  --accent:    #c87820;
+  --input-bg:  #faf4e4;
+  --bar:       #060508;
+  --bar-txt:   #c8a848;
+  --folder-bg: #e8d8b0;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'VT323', monospace;
+  background: var(--desk);
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* CRT scanlines */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px, transparent 3px,
+    rgba(0,0,0,0.10) 3px, rgba(0,0,0,0.10) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+#desktop {
+  position: absolute;
+  inset: 0 0 34px 0;
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 10px;
+  background-image:
+    repeating-linear-gradient(to right, var(--desk-line) 0, var(--desk-line) 1px, transparent 1px, transparent 40px),
+    repeating-linear-gradient(to bottom, var(--desk-line) 0, var(--desk-line) 1px, transparent 1px, transparent 40px);
+  background-size: 40px 40px;
+}
+
+/* ── DESKTOP ICONS ── */
+.d-icon {
+  width: 82px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 7px 4px; cursor: pointer;
+  border: 1px solid transparent;
+}
+.d-icon:hover   { border-color: #c8a040; background: rgba(200,160,64,.08); }
+.d-icon.selected{ border-color: #c8a040; background: rgba(200,160,64,.15); }
+.d-icon .icon-img { font-size: 38px; filter: drop-shadow(1px 2px 0 #000000aa); }
+.d-icon .icon-label {
+  font-family: 'VT323', monospace;
+  font-size: 15px; color: #d8c070;
+  text-align: center; line-height: 1.3; max-width: 78px;
+  text-shadow: 1px 1px 0 #000;
+}
+
+/* ── WINDOWS ── */
+@keyframes winOpen  { 0%,49%{opacity:0;transform:translateY(-6px)} 50%,100%{opacity:1;transform:translateY(0)} }
+@keyframes winClose { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+
+.window {
+  position: absolute;
+  min-width: 300px; min-height: 160px;
+  display: flex; flex-direction: column;
+  background: var(--win-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+  border: 2px solid var(--win-bdr);
+  box-shadow: 4px 4px 0 #000, inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh);
+  animation: winOpen .12s steps(2) both;
+  z-index: 10;
+}
+.window.focused  { z-index: 100; }
+.window.minimized{ display: none; }
+.window.closing  { animation: winClose .10s steps(2) both; }
+
+.titlebar {
+  background: linear-gradient(to right, var(--tb-from), var(--tb-to));
+  color: var(--tb-txt);
+  padding: 4px 6px;
+  display: flex; align-items: center; gap: 6px;
+  cursor: move;
+  font-family: 'VT323', monospace;
+  font-size: 17px; letter-spacing: .5px;
+  border-bottom: 1px solid #3a2010;
+  flex-shrink: 0;
+}
+.titlebar .title-text { flex: 1; }
+.wbtn {
+  width: 16px; height: 14px;
+  background: var(--btn);
+  border: 1px solid var(--win-bdr);
+  box-shadow: inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh);
+  cursor: pointer; font-size: 8px; color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-family: monospace;
+}
+.wbtn:hover  { background: var(--btn-hi); }
+.wbtn:active { box-shadow: inset -1px -1px 0 var(--btn-hi), inset 1px 1px 0 var(--btn-sh); }
+
+.window-body {
+  flex: 1; overflow-y: auto;
+  padding: 12px 14px 10px;
+  color: var(--text);
+}
+.window-body::-webkit-scrollbar { width: 12px; }
+.window-body::-webkit-scrollbar-track { background: var(--win-parch); border-left: 1px solid var(--btn-sh); }
+.window-body::-webkit-scrollbar-thumb { background: var(--btn); border: 1px solid var(--win-bdr); box-shadow: inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh); }
+
+.window-statusbar {
+  border-top: 1px solid #c8b07040;
+  padding: 2px 10px;
+  font-size: 14px; color: var(--btn-sh);
+  background: var(--win-parch);
+  flex-shrink: 0;
+  font-family: 'VT323', monospace;
+}
+.resize-handle {
+  position: absolute; right: 0; bottom: 0;
+  width: 14px; height: 14px; cursor: se-resize;
+  background: linear-gradient(135deg, transparent 50%, var(--btn-sh) 50%);
+}
+
+/* ── FOLDER ── */
+.folder-toolbar {
+  border-bottom: 1px solid #c8b07050;
+  background: var(--win-parch);
+  padding: 5px 10px;
+  display: flex; align-items: center; gap: 6px;
+  flex-shrink: 0;
+}
+.folder-grid { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; }
+
+.folder-icon {
+  width: 80px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 6px 4px; cursor: pointer;
+  border: 1px solid transparent;
+  position: relative;
+}
+.folder-icon:hover   { border-color: var(--accent); background: rgba(200,120,32,.08); }
+.folder-icon.selected{ border-color: var(--accent); background: rgba(200,120,32,.15); }
+.folder-icon .f-img  { font-size: 28px; filter: drop-shadow(1px 2px 0 rgba(0,0,0,.4)); }
+.folder-icon .f-label {
+  font-family: 'VT323', monospace;
+  font-size: 13px; color: var(--text); text-align: center;
+  line-height: 1.25; max-width: 76px;
+  overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+
+/* Hover preview card */
+.preview-card {
+  position: fixed; width: 240px;
+  background: var(--win-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E");
+  border: 2px solid var(--win-bdr);
+  box-shadow: 3px 3px 0 #000;
+  padding: 10px 12px;
+  pointer-events: none;
+  z-index: 8000; opacity: 0;
+  transition: opacity .1s steps(1);
+}
+.preview-card.show { opacity: 1; }
+.preview-card .pc-title { font-family:'Pixelify Sans',sans-serif; font-size:12px; color:var(--tb-from); line-height:1.3; margin-bottom:4px; font-weight:600; }
+.preview-card .pc-meta  { font-family:'Courier Prime',monospace; font-size:11px; color:var(--muted); font-style:italic; margin-bottom:6px; }
+.preview-card .pc-stars { font-size:16px; letter-spacing:2px; }
+
+/* ── PAPER WINDOW ── */
+.paper-layout { display: flex; gap: 12px; margin-bottom: 10px; }
+.pdf-preview-box {
+  flex-shrink: 0; width: 180px;
+  border: 1px solid var(--btn-sh);
+  box-shadow: inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh), 2px 2px 0 #0006;
+  background: var(--win-parch);
+  overflow: hidden;
+  display: flex; align-items: flex-start; justify-content: center;
+  min-height: 220px;
+}
+.pdf-preview-box canvas { display: block; width: 100% !important; height: auto !important; }
+.pdf-preview-box .pdf-placeholder {
+  font-size: 11px; color: var(--muted); text-align: center; padding: 10px;
+  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.4;
+}
+.paper-meta-col { flex: 1; min-width: 0; }
+.paper-title {
+  font-family: 'Pixelify Sans', sans-serif;
+  font-size: 16px; font-weight: 600;
+  color: var(--tb-from); line-height: 1.3; margin-bottom: 5px;
+}
+.paper-authors {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 3px;
+}
+.paper-venue {
+  font-family: 'Courier Prime', monospace;
+  font-size: 11px; color: #8a6838; margin-bottom: 8px;
+}
+.tags { display:flex; gap:4px; flex-wrap:wrap; margin: 6px 0 8px; }
+.tag { font-size: 14px; padding: 0 6px; border: 1px solid; font-family: 'VT323', monospace; letter-spacing: .3px; }
+.divider { border:none; border-top: 1px dashed #c8b07080; margin: 10px 0; }
+.section-label {
+  font-family: 'VT323', monospace;
+  font-size: 14px; letter-spacing: 1px;
+  color: var(--muted); margin-bottom: 4px; text-transform: uppercase;
+}
+.abstract-text {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px; line-height: 1.75; color: #3a2c14;
+}
+
+/* Stars */
+@keyframes starPop { 0%{transform:scale(1)} 30%{transform:scale(1.8)} 60%{transform:scale(0.8)} 100%{transform:scale(1)} }
+.stars-row { display:flex; gap:2px; align-items:center; }
+.star { font-size: 22px; cursor: pointer; display: inline-block; }
+.star.unlit { color: #c8b880; }
+.star.lit   { color: #d89020; }
+.star.pop   { animation: starPop .25s steps(4); }
+
+/* Notes */
+.notes-area {
+  width: 100%; min-height: 90px;
+  background: var(--input-bg);
+  border: 1px solid #c8a86060;
+  box-shadow: inset 1px 1px 2px rgba(0,0,0,.1);
+  padding: 8px 10px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 13px; color: var(--text);
+  resize: vertical; outline: none; line-height: 1.7;
+}
+.notes-area:focus { border-color: var(--accent); }
+
+/* Buttons */
+.win-btn {
+  background: var(--btn);
+  border: 1px solid var(--win-bdr);
+  box-shadow: inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh);
+  padding: 2px 14px;
+  font-family: 'VT323', monospace; font-size: 17px;
+  cursor: pointer; color: var(--text);
+}
+.win-btn:hover  { background: var(--btn-hi); }
+.win-btn:active { box-shadow: inset -1px -1px 0 var(--btn-hi), inset 1px 1px 0 var(--btn-sh); padding: 3px 13px 1px 15px; }
+.win-btn.danger { color: #8b1a1a; }
+
+/* ── ABOUT / CV ── */
+.cv-name-input {
+  font-family: 'Pixelify Sans', sans-serif;
+  font-size: 20px; font-weight: 600;
+  color: var(--tb-from); width: 100%;
+  background: transparent; border: none; border-bottom: 1px solid #c8a86040;
+  outline: none; margin-bottom: 4px;
+}
+.cv-name-input:focus { border-bottom-color: var(--accent); }
+.cv-field {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px; color: var(--text);
+  width: 100%; background: var(--input-bg);
+  border: 1px solid #c8a86050;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.06);
+  padding: 4px 8px; outline: none;
+}
+.cv-field:focus { border-color: var(--accent); }
+.cv-textarea {
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px; color: var(--text);
+  width: 100%; background: var(--input-bg);
+  border: 1px solid #c8a86050;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.06);
+  padding: 6px 8px; outline: none; resize: vertical; line-height: 1.7;
+}
+.cv-textarea:focus { border-color: var(--accent); }
+.stats-box {
+  background: var(--win-parch);
+  border: 1px solid #c8a86060;
+  padding: 10px 12px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 12px; line-height: 2; color: var(--text);
+}
+.stats-box b { color: var(--accent); }
+
+/* ── ADD PAPER FORM ── */
+.form-row { margin-bottom: 8px; }
+.form-row label {
+  display: block; font-family: 'VT323', monospace;
+  font-size: 14px; letter-spacing: .8px; color: var(--muted);
+  margin-bottom: 2px; text-transform: uppercase;
+}
+.form-input {
+  width: 100%; background: var(--input-bg);
+  border: 1px solid #c8a86050;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.06);
+  padding: 4px 8px;
+  font-family: 'Courier Prime', monospace; font-size: 12px; color: var(--text); outline: none;
+}
+.form-input:focus { border-color: var(--accent); }
+
+/* ── TASKBAR ── */
+#taskbar {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 34px;
+  background: var(--bar);
+  border-top: 1px solid #3a2808;
+  display: flex; align-items: center; gap: 4px; padding: 0 6px;
+  z-index: 1000;
+  box-shadow: none;
+}
+#start-btn {
+  background: var(--btn);
+  border: 1px solid var(--win-bdr);
+  box-shadow: inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh);
+  padding: 2px 12px;
+  font-family: 'VT323', monospace; font-size: 17px;
+  cursor: pointer; color: var(--text); flex-shrink: 0;
+}
+#start-btn:hover { background: var(--btn-hi); }
+.task-sep { width:1px; height:20px; background: #3a2808; margin: 0 2px; }
+.taskbar-btn {
+  background: transparent; border: 1px solid transparent;
+  color: #a08838; font-family: 'VT323', monospace; font-size: 16px;
+  padding: 2px 8px; cursor: pointer;
+  max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;
+}
+.taskbar-btn:hover  { border-color: #7a6030; color: var(--bar-txt); }
+.taskbar-btn.active { border-color: #a08030; color: var(--bar-txt); }
+#tray { margin-left:auto; padding:0 10px; border-left:1px solid #3a2808; color: var(--bar-txt); font-size:17px; display:flex; align-items:center; gap:10px; }
+#admin-badge {
+  font-family:'VT323',monospace; font-size:15px;
+  padding:1px 8px; border:1px solid; cursor:pointer;
+}
+#admin-badge.locked   { color:#888; border-color:#444; }
+#admin-badge.unlocked { color:#d89020; border-color:#a06010; }
+.readonly-notice {
+  background: var(--win-parch); border:1px solid #c8a86060;
+  padding:6px 10px; font-size:14px; color:var(--muted);
+  margin-bottom:10px; font-family:'VT323',monospace; letter-spacing:.3px;
+}
+
+/* ── START MENU ── */
+#start-menu {
+  position: fixed; bottom: 34px; left: 0;
+  width: 196px; background: var(--win-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+  border: 2px solid var(--win-bdr);
+  box-shadow: 2px -2px 0 #000;
+  z-index: 2000; display: none;
+}
+#start-menu.open { display: block; }
+.menu-strip {
+  background: linear-gradient(to bottom, var(--tb-from), var(--tb-to));
+  color: var(--tb-txt); padding: 10px 8px;
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  float: left; font-size: 17px; letter-spacing: 2px;
+  font-family: 'VT323', monospace;
+}
+.menu-items { margin-left: 36px; padding: 4px 0; }
+.menu-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; font-size: 17px; cursor: pointer; color: var(--text);
+  font-family: 'VT323', monospace;
+}
+.menu-item:hover { background: rgba(200,120,32,.15); color: var(--accent); }
+
+/* ── CONTEXT MENU ── */
+#ctx-menu {
+  position: fixed; background: var(--win-bg);
+  border: 1px solid var(--win-bdr);
+  box-shadow: 3px 3px 0 #000;
+  z-index: 3000; display: none; min-width: 170px;
+}
+#ctx-menu.open { display: block; }
+.ctx-item { padding: 5px 14px; font-size: 17px; cursor: pointer; color: var(--text); font-family:'VT323',monospace; }
+.ctx-item:hover { background: rgba(200,120,32,.12); color: var(--accent); }
+.ctx-sep { border-top: 1px solid #c8a86030; margin: 2px 0; }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 46px; right: 16px;
+  background: var(--tb-from); color: var(--tb-txt);
+  font-family: 'VT323', monospace; font-size: 17px;
+  padding: 3px 14px; border: 1px solid var(--btn-sh);
+  box-shadow: 2px 2px 0 #000;
+  opacity: 0; transition: opacity .15s steps(1); pointer-events: none; z-index: 5000;
+}
+#toast.show { opacity: 1; }
+
+/* ── MOBILE ── */
+@media (max-width: 720px) {
+  body { user-select: text; }
+  #desktop { padding: 8px; gap: 6px; }
+  .d-icon { width: 64px; padding: 4px 2px; }
+  .d-icon .icon-img { font-size: 30px; }
+  .d-icon .icon-label { font-size: 13px; max-width: 62px; }
+  .window {
+    width: calc(100vw - 8px) !important;
+    height: calc(100vh - 44px) !important;
+    left: 4px !important;
+    top: 4px !important;
+    min-width: 0;
+    min-height: 0;
+  }
+  .resize-handle { display: none; }
+  .paper-layout { flex-direction: column; }
+  .pdf-preview-box { width: 100%; min-height: 180px; }
+  #start-menu { width: 184px; }
+  .taskbar-btn { max-width: 90px; font-size: 14px; }
+  #start-btn { font-size: 15px; padding: 2px 8px; }
+  #tray { font-size: 14px; padding: 0 6px; gap: 6px; }
+  #admin-badge { font-size: 12px; padding: 1px 5px; }
+  .titlebar { font-size: 15px; }
+  .folder-icon { width: 70px; }
+}
+
+/* ── REDUCED MOTION ── */
+@media (prefers-reduced-motion: reduce) {
+  .window, .star.pop, #toast { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div id="desktop">
+  <div class="d-icon" id="icon-reviews" ondblclick="openReviews()" onclick="selectIcon('icon-reviews')">
+    <div class="icon-img">📁</div>
+    <div class="icon-label">Reviews</div>
+  </div>
+  <div class="d-icon" id="icon-about" ondblclick="openAbout()" onclick="selectIcon('icon-about')">
+    <div class="icon-img">🪪</div>
+    <div class="icon-label">About Me</div>
+  </div>
+</div>
+
+<div id="preview-card" class="preview-card">
+  <div class="pc-title" id="pc-title"></div>
+  <div class="pc-meta"  id="pc-meta"></div>
+  <div class="pc-stars" id="pc-stars"></div>
+</div>
+
+<div id="taskbar">
+  <button id="start-btn" onclick="toggleStartMenu()">⊞ PERSONA OS</button>
+  <div class="task-sep"></div>
+  <div id="taskbar-items"></div>
+  <div id="tray"><span id="admin-badge" class="locked" onclick="toggleAdminLogin()" title="Admin login">🔒 GUEST</span><span id="clock">--:--</span></div>
+</div>
+
+<div id="start-menu">
+  <div class="menu-strip">Persona OS</div>
+  <div class="menu-items">
+    <div class="menu-item" onclick="openReviews();closeStartMenu()">📁 Reviews</div>
+    <div class="menu-item" onclick="openAbout();closeStartMenu()">🪪 About Me</div>
+    <div class="menu-item" onclick="openAddPaper();closeStartMenu()">📄 Add Paper</div>
+  </div>
+</div>
+
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="openReviews();closeCtx()">📁 Open Reviews</div>
+  <div class="ctx-item" onclick="openAddPaper();closeCtx()">📄 Add New Paper</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="openAbout();closeCtx()">🪪 About Me</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── SAFE STORAGE ──────────────────────────────────────────
+let _lsOk = true;
+try { localStorage.setItem('__plt','1'); localStorage.removeItem('__plt'); }
+catch(e){ _lsOk = false; }
+function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function lsSet(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+function lsRemove(k){ try { localStorage.removeItem(k); } catch(e){} }
+
+// ── HTML ESCAPE ───────────────────────────────────────────
+const _ESC = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>_ESC[c]); }
+
+// ── ADMIN AUTH ───────────────────────────────────────────
+// Note: this is a client-side gate, not real authentication.
+// All data lives in this browser's localStorage.
+const ADMIN_KEY = 'pl-admin-session';
+const DEFAULT_PASS = 'admin123';
+
+function isAdmin(){ return lsGet(ADMIN_KEY)==='1'; }
+function setAdmin(v){ if(v) lsSet(ADMIN_KEY,'1'); else lsRemove(ADMIN_KEY); updateAdminBadge(); }
+function updateAdminBadge(){
+  const b=document.getElementById('admin-badge'); if(!b)return;
+  if(isAdmin()){ b.className='unlocked'; b.textContent='🔓 ADMIN'; }
+  else { b.className='locked'; b.textContent='🔒 GUEST'; }
+}
+
+function toggleAdminLogin(){
+  if(isAdmin()){ if(confirm('Log out from admin?')){ setAdmin(false); refreshOpenPapers(); toast('Logged out'); } }
+  else openLoginWindow();
+}
+
+function openLoginWindow(){
+  if(openWindows['login']){bringToFront(openWindows['login']);return;}
+  createWindow({id:'login',title:'Admin Login',icon:'🔐',width:300,height:220,statusText:'Enter admin password',buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body">
+      <div class="section-label" style="margin-bottom:8px">PASSWORD</div>
+      <input class="form-input" id="login-pass" type="password" placeholder="Enter password…" onkeydown="if(event.key==='Enter')submitLogin()" autofocus>
+      <div id="login-err" style="color:#8b1a1a;font-size:14px;margin-top:6px;font-family:'VT323',monospace"></div>
+      <div style="display:flex;gap:6px;margin-top:12px">
+        <button class="win-btn" onclick="submitLogin()">[ Login ]</button>
+        <button class="win-btn" onclick="closeWindow('login')">[ Cancel ]</button>
+      </div>
+      <hr class="divider">
+      <div style="font-size:13px;color:var(--muted);font-family:'Courier Prime',monospace">Default password: <b>admin123</b></div>
+    </div>`;
+    setTimeout(()=>document.getElementById('login-pass')?.focus(),100);
+  }});
+}
+
+function submitLogin(){
+  const pass=document.getElementById('login-pass')?.value||'';
+  const stored=lsGet('pl-admin-pass')||DEFAULT_PASS;
+  if(pass===stored){ setAdmin(true); closeWindow('login'); refreshOpenPapers(); toast('Admin access granted ✓'); }
+  else { const e=document.getElementById('login-err'); if(e)e.textContent='Incorrect password.'; }
+}
+
+function refreshOpenPapers(){
+  papers.forEach(p=>{ const el=document.getElementById('pb-'+p.id); if(el) renderPaperBody(p); });
+  renderFolderToolbar();
+}
+
+// ── PDF.js worker
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+}
+
+// ── DATA ─────────────────────────────────────────────────
+const STORE_KEY = 'pl-v4', CV_KEY = 'pl-cv-v4';
+
+const DEFAULT_PAPERS = [
+  {id:'p1',title:'Attention Is All You Need',authors:'Vaswani, A., Shazeer, N., Parmar, N., et al.',year:2017,venue:'NeurIPS',tags:['transformers','attention','NLP'],abstract:'The dominant sequence transduction models are based on complex recurrent or convolutional neural networks. We propose the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.',rating:5,notes:'Revolutionary paper. The multi-head attention mechanism is elegant. Positional encoding section needs re-reading.',icon:'🔬',pdfUrl:''}
+];
+const DEFAULT_CV = {
+  name:'Your Name',role:'Researcher · PhD Candidate',avatar:'🧑‍💻',
+  bio:'Write a short bio about yourself, your research interests, and current work.',
+  affiliation:'University / Lab name',email:'you@example.com',website:'yoursite.com',
+  interests:'Machine Learning, Reinforcement Learning, NLP'
+};
+
+let papers = [];
+let cv = { ...DEFAULT_CV };
+let remoteSnapshot = null;
+
+async function loadRemoteData(){
+  try {
+    const r = await fetch('./data.json?t='+Date.now(), { cache:'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } catch(e){ return null; }
+}
+
+async function bootData(){
+  remoteSnapshot = await loadRemoteData();
+  const tryParse = k => { try { return JSON.parse(lsGet(k)||'null'); } catch(e){ return null; } };
+  if (isAdmin()) {
+    papers = tryParse(STORE_KEY) || (remoteSnapshot && remoteSnapshot.papers) || DEFAULT_PAPERS;
+    cv     = tryParse(CV_KEY)    || (remoteSnapshot && remoteSnapshot.cv)     || { ...DEFAULT_CV };
+  } else {
+    papers = (remoteSnapshot && remoteSnapshot.papers) || DEFAULT_PAPERS;
+    cv     = (remoteSnapshot && remoteSnapshot.cv)     || { ...DEFAULT_CV };
+  }
+}
+
+// Visitors don't write to localStorage. Only admin drafts persist.
+function savePapers(){ if(isAdmin()) lsSet(STORE_KEY, JSON.stringify(papers)); }
+function saveCV()    { if(isAdmin()) lsSet(CV_KEY,    JSON.stringify(cv)); }
+
+function exportData(){
+  const payload = { papers, cv, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'data.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  toast('data.json downloaded — commit to repo to publish');
+}
+
+async function pullRemote(){
+  if(!confirm('Discard your local draft and pull data.json from the server?')) return;
+  lsRemove(STORE_KEY); lsRemove(CV_KEY);
+  await bootData();
+  renderFolderGrid(); renderFolderToolbar(); refreshOpenPapers();
+  if(document.getElementById('cv-body')) renderCV();
+  const fw = openWindows['reviews']; if(fw) fw.querySelector('.window-statusbar').textContent=`${papers.length} papers · double-click to open`;
+  toast(remoteSnapshot ? 'Pulled remote ✓' : 'No data.json on server — using defaults');
+}
+
+function hasLocalDraft(){ return !!(lsGet(STORE_KEY) || lsGet(CV_KEY)); }
+
+// ── TAG COLORS ────────────────────────────────────────────
+const TAG_PALETTE = [
+  {bg:'#2c4a1c',border:'#4a7830',text:'#b8e890'},
+  {bg:'#1c2c4a',border:'#2a4878',text:'#90b8e8'},
+  {bg:'#4a1c2c',border:'#782a48',text:'#e890b8'},
+  {bg:'#3a2c1c',border:'#6a5030',text:'#e8c890'},
+  {bg:'#2a1c4a',border:'#4a3078',text:'#c890e8'},
+  {bg:'#1c3a3a',border:'#2a6060',text:'#90e0e0'},
+  {bg:'#3a3a1c',border:'#606030',text:'#e0e090'},
+];
+const tagColorCache = {};
+function tagColor(t) {
+  if (!tagColorCache[t]) { let h=0; for(let c of t) h=(h*31+c.charCodeAt(0))&0xff; tagColorCache[t]=TAG_PALETTE[h%TAG_PALETTE.length]; }
+  return tagColorCache[t];
+}
+function tagHTML(t) { const c=tagColor(t); return `<span class="tag" style="background:${c.bg};border-color:${c.border};color:${c.text}">${esc(t)}</span>`; }
+function starsHTML(rating, id, editable=true) {
+  return [1,2,3,4,5].map(i=>`<span class="star ${i<=rating?'lit':'unlit'}" ${editable?`onclick="setRating('${id}',${i},this)"`:'style="cursor:default"'}>★</span>`).join('');
+}
+
+// ── PDF PREVIEW ───────────────────────────────────────────
+async function renderPdfPreview(url, containerId) {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  if (!url || !url.trim()) {
+    box.innerHTML = `<div class="pdf-placeholder">[ No PDF\nlink set ]\n\nEdit paper\nto add URL</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="pdf-placeholder">Loading\npdf...</div>`;
+  try {
+    const loadingTask = pdfjsLib.getDocument({ url: url.trim(), withCredentials: false });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2.5 });
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width  = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    box.innerHTML = '';
+    box.appendChild(canvas);
+  } catch(e) {
+    box.innerHTML = `<div class="pdf-placeholder">[ Preview\nunavailable ]\n\n${e.message?.slice(0,30)||'Check URL\nor CORS'}</div>`;
+  }
+}
+
+// ── WINDOW SYSTEM ─────────────────────────────────────────
+let zTop = 100;
+const openWindows = {};
+
+function bringToFront(win) {
+  zTop++; win.style.zIndex = zTop;
+  document.querySelectorAll('.window').forEach(w=>w.classList.remove('focused'));
+  win.classList.add('focused');
+}
+function makeDraggable(win, handle) {
+  let dx,dy,dragging=false;
+  handle.addEventListener('mousedown', e=>{ if(e.target.classList.contains('wbtn'))return; dragging=true; dx=e.clientX-win.offsetLeft; dy=e.clientY-win.offsetTop; bringToFront(win); e.preventDefault(); });
+  document.addEventListener('mousemove', e=>{ if(!dragging)return; win.style.left=Math.max(0,Math.min(e.clientX-dx,window.innerWidth-win.offsetWidth))+'px'; win.style.top=Math.max(0,Math.min(e.clientY-dy,window.innerHeight-34-win.offsetHeight))+'px'; });
+  document.addEventListener('mouseup', ()=>{ dragging=false; });
+}
+function makeResizable(win) {
+  const h=win.querySelector('.resize-handle'); if(!h)return;
+  let r=false,sx,sy,sw,sh;
+  h.addEventListener('mousedown',e=>{r=true;sx=e.clientX;sy=e.clientY;sw=win.offsetWidth;sh=win.offsetHeight;e.preventDefault();e.stopPropagation();});
+  document.addEventListener('mousemove',e=>{if(!r)return;win.style.width=Math.max(300,sw+e.clientX-sx)+'px';win.style.height=Math.max(160,sh+e.clientY-sy)+'px';});
+  document.addEventListener('mouseup',()=>{r=false;});
+}
+function createWindow({id,title,icon='📄',width=480,height=440,x,y,buildBody,statusText=''}) {
+  if(openWindows[id]){const w=openWindows[id];w.classList.remove('minimized');bringToFront(w);updateTaskbarBtn(id,false);return w;}
+  const win=document.createElement('div');
+  win.className='window'; win.dataset.winId=id;
+  win.style.cssText=`width:${width}px;height:${height}px;left:${x!==undefined?x:Math.max(20,30+Math.random()*(window.innerWidth-width-80))}px;top:${y!==undefined?y:Math.max(20,40+Math.random()*(window.innerHeight-height-80))}px`;
+  win.innerHTML=`<div class="titlebar"><span class="title-text">${icon} ${title}</span><button class="wbtn" title="Minimize">_</button><button class="wbtn close-x" title="Close">✕</button></div><div class="win-inner" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden"></div><div class="window-statusbar">${statusText}</div><div class="resize-handle"></div>`;
+  document.body.appendChild(win);
+  openWindows[id]=win;
+  buildBody(win.querySelector('.win-inner'));
+  makeDraggable(win,win.querySelector('.titlebar'));
+  makeResizable(win);
+  win.querySelector('.close-x').onclick=()=>closeWindow(id);
+  win.querySelectorAll('.wbtn')[0].onclick=()=>minimizeWindow(id);
+  win.addEventListener('mousedown',()=>bringToFront(win));
+  addTaskbarBtn(id,icon+' '+title);
+  bringToFront(win);
+  return win;
+}
+function closeWindow(id){const w=openWindows[id];if(!w)return;w.classList.add('closing');setTimeout(()=>{w.remove();delete openWindows[id];removeTaskbarBtn(id);},100);}
+function minimizeWindow(id){const w=openWindows[id];if(!w)return;w.classList.add('minimized');updateTaskbarBtn(id,true);}
+function restoreWindow(id){const w=openWindows[id];if(!w)return;w.classList.remove('minimized');bringToFront(w);updateTaskbarBtn(id,false);}
+
+function addTaskbarBtn(id,label){const bar=document.getElementById('taskbar-items');const btn=document.createElement('button');btn.className='taskbar-btn active';btn.dataset.winId=id;btn.textContent=label.length>22?label.slice(0,20)+'…':label;btn.onclick=()=>{const w=openWindows[id];if(!w)return;if(w.classList.contains('minimized'))restoreWindow(id);else if(w.classList.contains('focused')&&parseInt(w.style.zIndex)===zTop)minimizeWindow(id);else bringToFront(w);};bar.appendChild(btn);}
+function removeTaskbarBtn(id){document.querySelector(`.taskbar-btn[data-win-id="${id}"]`)?.remove();}
+function updateTaskbarBtn(id,min){const b=document.querySelector(`.taskbar-btn[data-win-id="${id}"]`);if(b)b.classList.toggle('active',!min);}
+
+function tick(){const n=new Date();document.getElementById('clock').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}
+tick();setInterval(tick,10000);
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
+
+// ── HOVER PREVIEW ─────────────────────────────────────────
+const previewCard=document.getElementById('preview-card');
+let previewTimeout;
+function showPreview(p,e){clearTimeout(previewTimeout);previewTimeout=setTimeout(()=>{document.getElementById('pc-title').textContent=p.title;document.getElementById('pc-meta').textContent=`${(p.authors||'').split(',')[0]} et al. · ${p.venue} ${p.year}`;document.getElementById('pc-stars').innerHTML=[1,2,3,4,5].map(i=>`<span style="color:${i<=p.rating?'#d89020':'#c8b880'}">★</span>`).join('');const x=Math.min(e.clientX+14,window.innerWidth-260);const y=Math.min(e.clientY+10,window.innerHeight-120);previewCard.style.left=x+'px';previewCard.style.top=y+'px';previewCard.classList.add('show');},350);}
+function hidePreview(){clearTimeout(previewTimeout);previewCard.classList.remove('show');}
+
+// ── REVIEWS FOLDER ────────────────────────────────────────
+function openReviews(){
+  createWindow({id:'reviews',title:'Reviews',icon:'📁',width:520,height:380,statusText:`${papers.length} papers · double-click to open`,buildBody:inner=>{
+    inner.innerHTML=`<div class="folder-toolbar" id="folder-toolbar"></div><div class="window-body" style="padding:10px"><div class="folder-grid" id="folder-grid"></div></div>`;
+    renderFolderToolbar();
+    renderFolderGrid();
+  }});
+}
+
+function renderFolderToolbar(){
+  const tb=document.getElementById('folder-toolbar');if(!tb)return;
+  if(isAdmin()){
+    const draft = hasLocalDraft();
+    tb.innerHTML = `
+      <button class="win-btn" onclick="openAddPaper()">📄 Add Paper</button>
+      <button class="win-btn" onclick="exportData()" title="Download data.json to commit to repo">⬇ Export</button>
+      <button class="win-btn" onclick="pullRemote()" title="Discard local draft and reload server data.json">↻ Pull</button>
+      <span style="font-size:13px;color:${draft?'#c87820':'var(--accent)'};font-family:'VT323',monospace;margin-left:6px">${draft?'● local draft — Export to publish':'🔓 Admin mode'}</span>`;
+  } else {
+    tb.innerHTML = `<span style="font-size:14px;color:var(--muted);font-family:'VT323',monospace">🔒 Read-only — click 🔒 GUEST to log in</span>`;
+  }
+}
+
+function renderFolderGrid(){
+  const grid=document.getElementById('folder-grid');if(!grid)return;
+  grid.innerHTML='';
+  papers.forEach(p=>{
+    const el=document.createElement('div');el.className='folder-icon';
+    el.innerHTML=`<div class="f-img">${esc(p.icon)}</div><div class="f-label">${esc(p.title)}</div>`;
+    el.addEventListener('click',()=>{document.querySelectorAll('.folder-icon').forEach(x=>x.classList.remove('selected'));el.classList.add('selected');});
+    el.addEventListener('dblclick',()=>openPaper(p.id));
+    el.addEventListener('mouseenter',e=>showPreview(p,e));
+    el.addEventListener('mousemove',e=>{if(previewCard.classList.contains('show')){previewCard.style.left=Math.min(e.clientX+14,window.innerWidth-260)+'px';previewCard.style.top=Math.min(e.clientY+10,window.innerHeight-120)+'px';}});
+    el.addEventListener('mouseleave',hidePreview);
+    grid.appendChild(el);
+  });
+}
+
+// ── PAPER WINDOW ──────────────────────────────────────────
+function openPaper(id){
+  const p=papers.find(x=>x.id===id);if(!p)return;
+  createWindow({id:'paper-'+id,title:p.title,icon:p.icon,width:540,height:520,statusText:`${p.venue} · ${p.year}`,buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body" id="pb-${id}"></div>`;
+    renderPaperBody(p);
+  }});
+}
+
+function renderPaperBody(p){
+  const el=document.getElementById('pb-'+p.id);if(!el)return;
+  const pdfBoxId='pdf-box-'+p.id;
+  const safeUrl = (p.pdfUrl||'').trim();
+  const urlOk   = /^https?:\/\//i.test(safeUrl);
+  el.innerHTML=`
+    ${!isAdmin()?`<div class="readonly-notice">🔒 View only — log in as admin to edit (local-only)</div>`:''}
+    <div class="paper-layout">
+      <div class="pdf-preview-box" id="${pdfBoxId}">
+        <div class="pdf-placeholder">[ Loading… ]</div>
+      </div>
+      <div class="paper-meta-col">
+        <div class="paper-title">${esc(p.title)}</div>
+        <div class="paper-authors">${esc(p.authors)}</div>
+        <div class="paper-venue">${esc(p.venue)} · ${esc(p.year)}</div>
+        <div class="tags">${(p.tags||[]).map(t=>tagHTML(t)).join('')}</div>
+        <div class="section-label" style="margin-top:4px;margin-bottom:4px">Rating</div>
+        <div class="stars-row" id="stars-${p.id}">${starsHTML(p.rating,p.id,isAdmin())}</div>
+      </div>
+    </div>
+    <div class="abstract-text" style="margin-bottom:10px">${esc(p.abstract)}</div>
+    <hr class="divider">
+    ${isAdmin()?`
+    <div class="section-label">PDF Link</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <input class="form-input" id="pdfurl-${p.id}" value="${esc(safeUrl)}" placeholder="https://arxiv.org/pdf/…" style="flex:1">
+      <button class="win-btn" onclick="savePdfUrl('${p.id}')">[ Set ]</button>
+    </div>`:urlOk?`<div class="section-label">PDF</div><div style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);margin-bottom:10px;word-break:break-all"><a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">${esc(safeUrl)}</a></div>`:''}
+    <div class="section-label">Notes</div>
+    ${isAdmin()?`
+    <textarea class="notes-area" id="notes-${p.id}" placeholder="Write your thoughts…">${esc(p.notes||'')}</textarea>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="win-btn" onclick="saveNotes('${p.id}')">[ Save Notes ]</button>
+      <button class="win-btn danger" onclick="deletePaper('${p.id}')">[ Delete ]</button>
+    </div>`:
+    `<div style="font-family:'Courier Prime',monospace;font-size:13px;line-height:1.7;color:var(--text);background:var(--input-bg);border:1px solid #c8a86040;padding:8px 10px;min-height:60px;white-space:pre-wrap">${p.notes?esc(p.notes):'<span style="color:var(--muted);font-style:italic">No notes yet.</span>'}</div>`
+    }
+  `;
+  renderPdfPreview(p.pdfUrl, pdfBoxId);
+}
+
+function savePdfUrl(id){
+  const p=papers.find(x=>x.id===id);if(!p)return;
+  const input=document.getElementById('pdfurl-'+id);if(!input)return;
+  p.pdfUrl=input.value.trim();savePapers();
+  renderPdfPreview(p.pdfUrl,'pdf-box-'+id);
+  toast('PDF link saved ✓');
+}
+
+function saveNotes(id){
+  const p=papers.find(x=>x.id===id);if(!p)return;
+  const ta=document.getElementById('notes-'+id);if(ta){p.notes=ta.value;savePapers();toast('Notes saved ✓');}
+}
+function setRating(id,r,el){
+  const p=papers.find(x=>x.id===id);if(!p)return;
+  p.rating=r;savePapers();
+  const row=document.getElementById('stars-'+id);
+  if(row){row.innerHTML=starsHTML(r,id);const s=[...row.querySelectorAll('.star')][r-1];if(s){s.classList.add('pop');s.addEventListener('animationend',()=>s.classList.remove('pop'),{once:true});}}
+  toast('Rating saved ✓');
+}
+function deletePaper(id){
+  if(!confirm('Remove this paper?'))return;
+  papers=papers.filter(x=>x.id!==id);savePapers();closeWindow('paper-'+id);renderFolderGrid();
+  const fw=openWindows['reviews'];if(fw)fw.querySelector('.window-statusbar').textContent=`${papers.length} papers · double-click to open`;
+  toast('Paper removed');
+}
+
+// ── ADD PAPER ─────────────────────────────────────────────
+function openAddPaper(){
+  if(openWindows['add-paper']){bringToFront(openWindows['add-paper']);return;}
+  createWindow({id:'add-paper',title:'Add New Paper',icon:'📄',width:420,height:520,statusText:'New entry',buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body">
+      <div class="form-row"><label>Title *</label><input class="form-input" id="ap-title" type="text" placeholder="Full paper title…"></div>
+      <div class="form-row"><label>Authors</label><input class="form-input" id="ap-authors" type="text" placeholder="Author, A., Author, B., …"></div>
+      <div style="display:flex;gap:8px">
+        <div class="form-row" style="flex:1"><label>Year</label><input class="form-input" id="ap-year" type="number" placeholder="2024"></div>
+        <div class="form-row" style="flex:1"><label>Venue</label><input class="form-input" id="ap-venue" type="text" placeholder="NeurIPS…"></div>
+      </div>
+      <div class="form-row"><label>Tags (comma-separated)</label><input class="form-input" id="ap-tags" type="text" placeholder="deep learning, NLP…"></div>
+      <div class="form-row"><label>Abstract</label><textarea class="form-input" id="ap-abstract" style="height:70px;resize:vertical" placeholder="Paste abstract…"></textarea></div>
+      <div class="form-row"><label>PDF URL</label><input class="form-input" id="ap-pdfurl" type="url" placeholder="https://arxiv.org/pdf/…"></div>
+      <div style="display:flex;gap:8px;align-items:flex-end;margin-top:4px">
+        <div class="form-row"><label>Icon</label><input class="form-input" id="ap-icon" type="text" value="📄" style="width:52px"></div>
+        <div style="flex:1"></div>
+        <button class="win-btn" style="margin-bottom:8px" onclick="submitAddPaper()">[ Add to Library ]</button>
+      </div>
+    </div>`;
+  }});
+}
+
+function submitAddPaper(){
+  const title=document.getElementById('ap-title').value.trim();
+  if(!title){toast('Title is required!');return;}
+  const id='p'+Date.now();
+  papers.push({id,title,
+    authors:document.getElementById('ap-authors').value.trim()||'Unknown',
+    year:parseInt(document.getElementById('ap-year').value)||new Date().getFullYear(),
+    venue:document.getElementById('ap-venue').value.trim()||'—',
+    tags:document.getElementById('ap-tags').value.split(',').map(t=>t.trim()).filter(Boolean),
+    abstract:document.getElementById('ap-abstract').value.trim()||'',
+    rating:0,notes:'',
+    icon:document.getElementById('ap-icon').value.trim()||'📄',
+    pdfUrl:document.getElementById('ap-pdfurl').value.trim()||''
+  });
+  savePapers();renderFolderGrid();
+  const fw=openWindows['reviews'];if(fw)fw.querySelector('.window-statusbar').textContent=`${papers.length} papers · double-click to open`;
+  closeWindow('add-paper');toast('Paper added!');
+  setTimeout(()=>openPaper(id),200);
+}
+
+// ── ABOUT / CV ────────────────────────────────────────────
+function openAbout(){
+  createWindow({id:'about',title:'About Me',icon:'🪪',width:480,height:560,statusText:'Click any field to edit — auto-saves',buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body" id="cv-body"></div>`;renderCV();
+  }});
+}
+function renderCV(){
+  const el=document.getElementById('cv-body');if(!el)return;
+  const ro = !isAdmin();
+  const ROFLAG = ro ? 'readonly' : '';
+  el.innerHTML=`
+    ${ro?`<div class="readonly-notice">🔒 View only — log in as admin to edit</div>`:''}
+    <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:14px">
+      <div style="width:60px;height:60px;background:var(--win-parch);border:2px solid var(--win-bdr);display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;${ro?'':'cursor:pointer;'}box-shadow:inset 1px 1px 0 var(--btn-hi),inset -1px -1px 0 var(--btn-sh)" ${ro?'':'onclick="changeAvatar()" title="Click to change"'}>${esc(cv.avatar)}</div>
+      <div style="flex:1"><input class="cv-name-input" id="cv-name" value="${esc(cv.name)}" ${ro?ROFLAG:'oninput="cv.name=this.value;saveCV()"'} placeholder="Your Name"><input class="cv-field" value="${esc(cv.role)}" ${ro?ROFLAG:'oninput="cv.role=this.value;saveCV()"'} placeholder="Role / Title" style="font-style:italic;color:var(--muted)"></div>
+    </div>
+    <div class="form-row"><label>Affiliation</label><input class="cv-field" value="${esc(cv.affiliation)}" ${ro?ROFLAG:'oninput="cv.affiliation=this.value;saveCV()"'}></div>
+    <div class="form-row"><label>Bio</label><textarea class="cv-textarea" rows="4" ${ro?ROFLAG:'oninput="cv.bio=this.value;saveCV()"'}>${esc(cv.bio)}</textarea></div>
+    <div class="form-row"><label>Research Interests</label><input class="cv-field" value="${esc(cv.interests)}" ${ro?ROFLAG:'oninput="cv.interests=this.value;saveCV()"'}></div>
+    <div style="display:flex;gap:8px">
+      <div class="form-row" style="flex:1"><label>Email</label><input class="cv-field" value="${esc(cv.email)}" ${ro?ROFLAG:'oninput="cv.email=this.value;saveCV()"'} type="email"></div>
+      <div class="form-row" style="flex:1"><label>Website</label><input class="cv-field" value="${esc(cv.website)}" ${ro?ROFLAG:'oninput="cv.website=this.value;saveCV()"'}></div>
+    </div>
+    <hr class="divider">
+    <div class="section-label" style="margin-bottom:8px">Reading Stats</div>
+    <div class="stats-box">
+      📚 Papers read: <b>${papers.length}</b> &nbsp;·&nbsp; ⭐ Avg rating: <b>${papers.length?(papers.reduce((s,p)=>s+(p.rating||0),0)/papers.length).toFixed(1):'—'}</b><br>
+      🏷 Top tag: <b>${esc(topTag())}</b> &nbsp;·&nbsp; ✍️ With notes: <b>${papers.filter(p=>(p.notes||'').trim()).length}</b>
+    </div><br>
+    <button class="win-btn" onclick="closeWindow('about');toast('All saved ✓')">[ Done ]</button>
+  `;
+}
+function topTag(){const f={};papers.forEach(p=>p.tags.forEach(t=>f[t]=(f[t]||0)+1));const e=Object.entries(f).sort((a,b)=>b[1]-a[1])[0];return e?e[0]:'—';}
+function changeAvatar(){const e=['🧑‍💻','👨‍🔬','👩‍🔬','🧑‍🎓','👨‍🏫','🦊','🐙','🌿','🔭','📡','🧬'];const i=e.indexOf(cv.avatar);cv.avatar=e[(i+1)%e.length];saveCV();renderCV();}
+
+// ── MENUS ─────────────────────────────────────────────────
+function toggleStartMenu(){document.getElementById('start-menu').classList.toggle('open');}
+function closeStartMenu(){document.getElementById('start-menu').classList.remove('open');}
+function closeCtx(){document.getElementById('ctx-menu').classList.remove('open');}
+function selectIcon(id){document.querySelectorAll('.d-icon').forEach(x=>x.classList.remove('selected'));document.getElementById(id)?.classList.add('selected');}
+
+document.getElementById('desktop').addEventListener('contextmenu',e=>{e.preventDefault();const m=document.getElementById('ctx-menu');m.style.left=e.clientX+'px';m.style.top=Math.min(e.clientY,window.innerHeight-110)+'px';m.classList.add('open');});
+document.addEventListener('click',()=>{closeCtx();closeStartMenu();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeCtx();closeStartMenu();}});
+
+(async()=>{
+  updateAdminBadge();
+  await bootData();
+  setTimeout(()=>openReviews(),200);
+  if(!_lsOk) setTimeout(()=>toast('⚠ Storage disabled — changes won\'t persist'),1200);
+  if(!remoteSnapshot) setTimeout(()=>toast('ℹ data.json not found — showing defaults'),1600);
+})();
+</script>
+</body>
+</html>

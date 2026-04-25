@@ -1,0 +1,40 @@
+{
+  "papers": [
+    {
+      "id": "p1",
+      "title": "Attention Is All You Need",
+      "authors": "Vaswani, A., Shazeer, N., Parmar, N., et al.",
+      "year": 2017,
+      "venue": "NeurIPS",
+      "tags": ["transformers", "attention", "NLP"],
+      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks. We propose the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.",
+      "rating": 5,
+      "notes": "Revolutionary paper. The multi-head attention mechanism is elegant. Positional encoding section needs re-reading.",
+      "icon": "🔬",
+      "pdfUrl": ""
+    },
+    {
+      "id": "p2",
+      "title": "ImageNet Classification with Deep CNNs",
+      "authors": "Krizhevsky, A., Sutskever, I., Hinton, G.",
+      "year": 2012,
+      "venue": "NeurIPS",
+      "tags": ["CNN", "vision", "deep learning"],
+      "abstract": "We trained a large, deep convolutional neural network to classify 1.2 million high-resolution images in ImageNet LSVRC-2010 into 1000 classes.",
+      "rating": 4,
+      "notes": "AlexNet. Dropout regularization is key. ReLU over tanh is a big win for training speed.",
+      "icon": "🖼️",
+      "pdfUrl": ""
+    }
+  ],
+  "cv": {
+    "name": "Your Name",
+    "role": "Researcher · PhD Candidate",
+    "avatar": "🧑‍💻",
+    "bio": "Write a short bio about yourself, your research interests, and current work.",
+    "affiliation": "University / Lab name",
+    "email": "you@example.com",
+    "website": "yoursite.com",
+    "interests": "Machine Learning, Reinforcement Learning, NLP"
+  }
+}
