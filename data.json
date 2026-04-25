@@ -36,13 +36,13 @@
     }
   ],
   "cv": {
-    "name": "Your Name",
-    "role": "Researcher · PhD Candidate",
+    "name": "Ali Emre Aydin",
+    "role": "Researcher · undergrad student",
     "avatar": "🧑‍💻",
-    "bio": "Write a short bio about yourself, your research interests, and current work.",
-    "affiliation": "University / Lab name",
-    "email": "you@example.com",
-    "website": "yoursite.com",
-    "interests": "Machine Learning, Reinforcement Learning, NLP"
+    "bio": "i like computers",
+    "affiliation": "CS Student / junior year",
+    "email": "aliemreaydin111@gmail.com",
+    "website": "internetpersona.net",
+    "interests": "quantum computing,deep learning,machine learning"
   }
 }
