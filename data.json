@@ -1,44 +1,27 @@
 {
   "papers": [
     {
-      "id": "p1",
-      "title": "Attention Is All You Need",
-      "authors": "Vaswani, A., Shazeer, N., Parmar, N., et al.",
-      "year": 2017,
-      "venue": "NeurIPS",
+      "id": "p1777155764388",
+      "title": "How to Read a Paper",
+      "authors": "S. Keshav",
+      "year": 2007,
+      "venue": "ACM SIGCOMM CCR",
       "tags": [
-        "transformers",
-        "attention",
-        "NLP"
+        "research",
+        "beginner",
+        "survey"
       ],
-      "abstract": "The dominant sequence transduction models are based on complex recurrent or convolutional neural networks. We propose the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.",
+      "abstract": "Researchers spend a great deal of time reading research papers. However, this skill is rarely taught, leading to much wasted effort. This article outlines a practical and efficient three-pass method for reading research papers. I also describe how to use this method to do a literature survey.",
       "rating": 5,
-      "notes": "Revolutionary paper. The multi-head attention mechanism is elegant. Positional encoding section needs re-reading.",
-      "icon": "🔬",
-      "pdfUrl": ""
-    },
-    {
-      "id": "p2",
-      "title": "ImageNet Classification with Deep CNNs",
-      "authors": "Krizhevsky, A., Sutskever, I., Hinton, G.",
-      "year": 2012,
-      "venue": "NeurIPS",
-      "tags": [
-        "CNN",
-        "vision",
-        "deep learning"
-      ],
-      "abstract": "We trained a large, deep convolutional neural network to classify 1.2 million high-resolution images in ImageNet LSVRC-2010 into 1000 classes.",
-      "rating": 4,
-      "notes": "AlexNet. Dropout regularization is key. ReLU over tanh is a big win for training speed.",
-      "icon": "🖼️",
-      "pdfUrl": ""
+      "notes": "as a undergrad student (2026), i can clearly say that this was all i was looking for. \n\nApr 26 2026, i suddenly googled as \"how to read a paper\" an this was what I faced with.\n\nTo conclude, this paper suggests a three-pass approach to read articles for more efficient way.\n\npass one -> quickly skim the headings, abstraction and conclusion. approx. 10-15min\n\npass two -> read more deeply, but do not interfere with proofs if it is a technical paper;mark relevant unread references for further reading. pay attention to figures. approx. 1hr\n\npass three -> basically re-implement the paper. you need to think as author and brainstorm about the complex structures and criticize the limitations. approx. 4-5 hr",
+      "icon": "📄",
+      "pdfUrl": "https://web.stanford.edu/class/ee384m/Handouts/HowtoReadPaper.pdf"
     }
   ],
   "cv": {
     "name": "Ali Emre Aydin",
-    "role": "researcher · undergrad student",
-    "avatar": "🧑‍🎓",
+    "role": "Researcher · undergrad student",
+    "avatar": "🧑‍💻",
     "bio": "i like computers",
     "affiliation": "CS Student / junior year",
     "email": "aliemreaydin111@gmail.com",
