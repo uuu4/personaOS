@@ -514,11 +514,16 @@ function lsRemove(k){ try { localStorage.removeItem(k); } catch(e){} }
 const _ESC = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>_ESC[c]); }
 
+// ── PUBLISH WORKER ────────────────────────────────────────
+// Cloudflare Worker that verifies the admin password and commits data.json to the repo.
+// Empty string => admin login is disabled (read-only site).
+const WORKER_URL = 'https://personaos-publish.uuu4.workers.dev';
+
 // ── ADMIN AUTH ───────────────────────────────────────────
-// Note: this is a client-side gate, not real authentication.
-// All data lives in this browser's localStorage.
+// Real authentication is done by the Worker against ADMIN_PASSWORD secret.
+// This module only tracks "am I logged in?" locally; password held in sessionStorage.
 const ADMIN_KEY = 'pl-admin-session';
-const DEFAULT_PASS = 'admin123';
+const PW_SESSION_KEY = 'pl-admin-pw';
 
 function isAdmin(){ return lsGet(ADMIN_KEY)==='1'; }
 function setAdmin(v){ if(v) lsSet(ADMIN_KEY,'1'); else lsRemove(ADMIN_KEY); updateAdminBadge(); }
@@ -529,33 +534,102 @@ function updateAdminBadge(){
 }
 
 function toggleAdminLogin(){
-  if(isAdmin()){ if(confirm('Log out from admin?')){ setAdmin(false); refreshOpenPapers(); toast('Logged out'); } }
-  else openLoginWindow();
+  if(isAdmin()){
+    if(confirm('Log out from admin?')){
+      setAdmin(false);
+      try { sessionStorage.removeItem(PW_SESSION_KEY); } catch(e){}
+      refreshOpenPapers();
+      toast('Logged out');
+    }
+  } else {
+    if(!WORKER_URL){ toast('Publishing not configured — read-only site'); return; }
+    openLoginWindow();
+  }
 }
 
 function openLoginWindow(){
   if(openWindows['login']){bringToFront(openWindows['login']);return;}
-  createWindow({id:'login',title:'Admin Login',icon:'🔐',width:300,height:220,statusText:'Enter admin password',buildBody:inner=>{
+  createWindow({id:'login',title:'Admin Login',icon:'🔐',width:320,height:210,statusText:'Verified by publish worker',buildBody:inner=>{
     inner.innerHTML=`<div class="window-body">
       <div class="section-label" style="margin-bottom:8px">PASSWORD</div>
       <input class="form-input" id="login-pass" type="password" placeholder="Enter password…" onkeydown="if(event.key==='Enter')submitLogin()" autofocus>
       <div id="login-err" style="color:#8b1a1a;font-size:14px;margin-top:6px;font-family:'VT323',monospace"></div>
       <div style="display:flex;gap:6px;margin-top:12px">
-        <button class="win-btn" onclick="submitLogin()">[ Login ]</button>
+        <button class="win-btn" id="login-btn" onclick="submitLogin()">[ Login ]</button>
         <button class="win-btn" onclick="closeWindow('login')">[ Cancel ]</button>
       </div>
       <hr class="divider">
-      <div style="font-size:13px;color:var(--muted);font-family:'Courier Prime',monospace">Default password: <b>admin123</b></div>
+      <div style="font-size:13px;color:var(--muted);font-family:'Courier Prime',monospace">Verified server-side. Wrong attempts are rate-limited.</div>
     </div>`;
     setTimeout(()=>document.getElementById('login-pass')?.focus(),100);
   }});
 }
 
-function submitLogin(){
+async function submitLogin(){
   const pass=document.getElementById('login-pass')?.value||'';
-  const stored=lsGet('pl-admin-pass')||DEFAULT_PASS;
-  if(pass===stored){ setAdmin(true); closeWindow('login'); refreshOpenPapers(); toast('Admin access granted ✓'); }
-  else { const e=document.getElementById('login-err'); if(e)e.textContent='Incorrect password.'; }
+  const errEl=document.getElementById('login-err');
+  const btn=document.getElementById('login-btn');
+  if(errEl) errEl.textContent='';
+  if(!WORKER_URL){ if(errEl) errEl.textContent='Worker not configured.'; return; }
+  if(!pass){ if(errEl) errEl.textContent='Enter a password.'; return; }
+  if(btn){ btn.disabled=true; btn.textContent='[ … ]'; }
+  try {
+    const r = await fetch(WORKER_URL.replace(/\/$/,'') + '/verify', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ password: pass })
+    });
+    if(r.ok){
+      try { sessionStorage.setItem(PW_SESSION_KEY, pass); } catch(e){}
+      setAdmin(true);
+      closeWindow('login');
+      await bootData();
+      renderFolderGrid(); renderFolderToolbar(); refreshOpenPapers();
+      if(document.getElementById('cv-body')) renderCV();
+      toast('Admin verified ✓');
+    } else if(r.status===401){
+      if(errEl) errEl.textContent='Incorrect password.';
+    } else {
+      if(errEl) errEl.textContent='Worker error: '+r.status;
+    }
+  } catch(e){
+    if(errEl) errEl.textContent='Cannot reach worker.';
+  } finally {
+    if(btn){ btn.disabled=false; btn.textContent='[ Login ]'; }
+  }
+}
+
+async function publishToWorker(){
+  if(!WORKER_URL){ toast('Worker not configured'); return; }
+  let pass=''; try { pass = sessionStorage.getItem(PW_SESSION_KEY) || ''; } catch(e){}
+  if(!pass){ toast('Session expired — log in again'); setAdmin(false); openLoginWindow(); return; }
+  const msg = prompt('Commit message:', 'Update via personaOS');
+  if(msg===null) return;
+  toast('Publishing…');
+  try {
+    const r = await fetch(WORKER_URL.replace(/\/$/,'') + '/publish', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ password: pass, data: { papers, cv }, message: msg })
+    });
+    if(r.ok){
+      lsRemove(STORE_KEY); lsRemove(CV_KEY);
+      await bootData();
+      renderFolderGrid(); renderFolderToolbar(); refreshOpenPapers();
+      if(document.getElementById('cv-body')) renderCV();
+      toast('Published ✓ — live in ~30 sec');
+    } else if(r.status===401){
+      try { sessionStorage.removeItem(PW_SESSION_KEY); } catch(e){}
+      setAdmin(false);
+      toast('Auth expired — log in again');
+      openLoginWindow();
+    } else {
+      const err = await r.json().catch(()=>({}));
+      toast('Publish failed: '+(err.error||r.status));
+    }
+  } catch(e){
+    toast('Network error');
+  }
 }
 
 function refreshOpenPapers(){
@@ -749,13 +823,16 @@ function renderFolderToolbar(){
   const tb=document.getElementById('folder-toolbar');if(!tb)return;
   if(isAdmin()){
     const draft = hasLocalDraft();
+    const pubBtn = WORKER_URL ? `<button class="win-btn" onclick="publishToWorker()" title="Commit data.json via worker">🚀 Publish</button>` : '';
     tb.innerHTML = `
       <button class="win-btn" onclick="openAddPaper()">📄 Add Paper</button>
-      <button class="win-btn" onclick="exportData()" title="Download data.json to commit to repo">⬇ Export</button>
+      ${pubBtn}
+      <button class="win-btn" onclick="exportData()" title="Download data.json (manual backup)">⬇ Export</button>
       <button class="win-btn" onclick="pullRemote()" title="Discard local draft and reload server data.json">↻ Pull</button>
-      <span style="font-size:13px;color:${draft?'#c87820':'var(--accent)'};font-family:'VT323',monospace;margin-left:6px">${draft?'● local draft — Export to publish':'🔓 Admin mode'}</span>`;
+      <span style="font-size:13px;color:${draft?'#c87820':'var(--accent)'};font-family:'VT323',monospace;margin-left:6px">${draft?'● local draft — Publish to push live':'🔓 Admin mode'}</span>`;
   } else {
-    tb.innerHTML = `<span style="font-size:14px;color:var(--muted);font-family:'VT323',monospace">🔒 Read-only — click 🔒 GUEST to log in</span>`;
+    const hint = WORKER_URL ? '🔒 Read-only — click 🔒 GUEST to log in' : '🔒 Read-only';
+    tb.innerHTML = `<span style="font-size:14px;color:var(--muted);font-family:'VT323',monospace">${hint}</span>`;
   }
 }
 

@@ -1,0 +1,10 @@
+name = "personaos-publish"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Secrets are NOT defined here. Set them via:
+#   npx wrangler secret put GITHUB_TOKEN
+#   npx wrangler secret put ADMIN_PASSWORD
+
+[observability]
+enabled = true
