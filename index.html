@@ -109,6 +109,8 @@ body.scanlines-off::after { display: none !important; }
   background: var(--win-bg);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
   border: 2px solid var(--win-bdr);
+  border-radius: var(--win-radius, 0px);
+  overflow: hidden;
   box-shadow: 4px 4px 0 #000, inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh);
   animation: winOpen .12s steps(2) both;
   z-index: 10;
@@ -1061,7 +1063,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeCtx();closeSta
 // ── PREFERENCES ───────────────────────────────────────────
 const PREFS_KEY = 'pl-prefs';
 let prefs = (()=>{ try{ return JSON.parse(lsGet(PREFS_KEY)||'null') || {}; }catch(e){return {};} })();
-prefs = { theme:'parchment', scanlines:true, sounds:true, winSize:'medium', deskPattern:'solid', ...prefs };
+prefs = { theme:'parchment', scanlines:true, sounds:true, winSize:'medium', deskPattern:'solid', corners:'sharp', ...prefs };
 delete prefs.barrel;
 function savePrefs(){ lsSet(PREFS_KEY, JSON.stringify(prefs)); }
 
@@ -1126,6 +1128,12 @@ function playSound(type){
 }
 
 // ── FONT ──────────────────────────────────────────────────
+// ── CORNER RADIUS ─────────────────────────────────────────
+const CORNERS = { sharp:'0px', subtle:'6px', rounded:'14px' };
+function applyCorners(name){
+  document.documentElement.style.setProperty('--win-radius', CORNERS[name] || '0px');
+}
+
 // ── DESKTOP PATTERN ────────────────────────────────────────
 function applyDeskPattern(name){
   const b=document.body;
@@ -1146,6 +1154,7 @@ function applyPrefs(){
   applyTheme(prefs.theme);
   applyScanlines(prefs.scanlines);
   applyDeskPattern(prefs.deskPattern);
+  applyCorners(prefs.corners);
 }
 
 // ── PREFERENCES WINDOW ────────────────────────────────────
@@ -1189,6 +1198,16 @@ function renderPrefsBody(){
           <button class="win-btn" onclick="prefs.winSize='${s}';savePrefs();renderPrefsBody()"
             style="${prefs.winSize===s?'outline:1px solid var(--accent);outline-offset:1px':''}">
             [ ${s} ]
+          </button>`).join('')}
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <label>Corner Style</label>
+      <div style="display:flex;gap:5px;margin-top:4px">
+        ${Object.keys(CORNERS).map(c=>`
+          <button class="win-btn" onclick="prefs.corners='${c}';applyCorners('${c}');savePrefs();renderPrefsBody()"
+            style="${prefs.corners===c?'outline:1px solid var(--accent);outline-offset:1px':''}">
+            [ ${c} ]
           </button>`).join('')}
       </div>
     </div>
