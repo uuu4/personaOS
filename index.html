@@ -63,6 +63,7 @@ body::after {
   pointer-events: none;
   z-index: 9999;
 }
+body.scanlines-off::after { display: none !important; }
 
 #desktop {
   position: absolute;
@@ -488,16 +489,32 @@ body::after {
   <div class="menu-items">
     <div class="menu-item" onclick="openReviews();closeStartMenu()">📁 Reviews</div>
     <div class="menu-item" onclick="openAbout();closeStartMenu()">🪪 About Me</div>
-    <div class="menu-item" onclick="openAdd();closeStartMenu()">📄 Add </div>
+    <div class="menu-item" onclick="openAddPaper();closeStartMenu()">📄 Add Paper</div>
+    <div class="menu-item" onclick="openPreferences();closeStartMenu()">⚙ Preferences</div>
   </div>
 </div>
 
 <div id="ctx-menu">
   <div class="ctx-item" onclick="openReviews();closeCtx()">📁 Open Reviews</div>
-  <div class="menu-item" onclick="openAbout();closeCtx()">🪪 About Me</div>
+  <div class="ctx-item" onclick="openAbout();closeCtx()">🪪 About Me</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="openPreferences();closeCtx()">⚙ Preferences</div>
 </div>
 
 <div id="toast"></div>
+
+<!-- SVG barrel distortion filter (hidden, 0×0) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute;overflow:hidden;pointer-events:none">
+  <defs>
+    <filter id="barrel-svgf" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feImage id="barrel-feimg" preserveAspectRatio="none" result="bmap"/>
+      <feDisplacementMap id="barrel-fedm" in="SourceGraphic" in2="bmap"
+        xChannelSelector="R" yChannelSelector="G" scale="0"/>
+    </filter>
+  </defs>
+</svg>
+<!-- CRT vignette overlay (shown when barrel is on) -->
+<div id="crt-vignette" style="position:fixed;inset:0;pointer-events:none;z-index:99998;opacity:0;transition:opacity .25s;background:radial-gradient(ellipse 75% 75% at 50% 50%, transparent 55%, rgba(0,0,0,0.88) 100%)"></div>
 
 <script>
 // ── SAFE STORAGE ──────────────────────────────────────────
@@ -1011,13 +1028,136 @@ function closeStartMenu(){document.getElementById('start-menu').classList.remove
 function closeCtx(){document.getElementById('ctx-menu').classList.remove('open');}
 function selectIcon(id){document.querySelectorAll('.d-icon').forEach(x=>x.classList.remove('selected'));document.getElementById(id)?.classList.add('selected');}
 
-document.getElementById('desktop').addEventListener('contextmenu',e=>{e.preventDefault();const m=document.getElementById('ctx-menu');m.style.left=e.clientX+'px';m.style.top=Math.min(e.clientY,window.innerHeight-110)+'px';m.classList.add('open');});
+document.getElementById('desktop').addEventListener('contextmenu',e=>{e.preventDefault();const m=document.getElementById('ctx-menu');m.style.left=e.clientX+'px';m.style.top=Math.min(e.clientY,window.innerHeight-140)+'px';m.classList.add('open');});
 document.addEventListener('click',()=>{closeCtx();closeStartMenu();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeCtx();closeStartMenu();}});
+
+// ── PREFERENCES ───────────────────────────────────────────
+const PREFS_KEY = 'pl-prefs';
+let prefs = (()=>{ try{ return JSON.parse(lsGet(PREFS_KEY)||'null') || {}; }catch(e){return {};} })();
+prefs = { theme:'parchment', barrel:'off', scanlines:true, ...prefs };
+function savePrefs(){ lsSet(PREFS_KEY, JSON.stringify(prefs)); }
+
+const THEMES = {
+  parchment:     {'--desk':'#09080a','--desk-line':'#131118','--win-bg':'#f3e8cc','--win-parch':'#ede0bc','--win-bdr':'#1a1008','--tb-from':'#1c120a','--tb-to':'#0e0a06','--tb-txt':'#e8c060','--btn':'#d8c8a0','--btn-hi':'#f0e4c0','--btn-sh':'#7a6030','--text':'#1e1408','--muted':'#5a4828','--accent':'#c87820','--input-bg':'#faf4e4','--bar':'#060508','--bar-txt':'#c8a848','--folder-bg':'#e8d8b0'},
+  phosphorGreen: {'--desk':'#000800','--desk-line':'#001400','--win-bg':'#001a00','--win-parch':'#002200','--win-bdr':'#00cc33','--tb-from':'#003300','--tb-to':'#001a00','--tb-txt':'#00ff41','--btn':'#004400','--btn-hi':'#006600','--btn-sh':'#00aa20','--text':'#00ff41','--muted':'#009920','--accent':'#00ff41','--input-bg':'#001200','--bar':'#000400','--bar-txt':'#00ff41','--folder-bg':'#001800'},
+  phosphorAmber: {'--desk':'#0a0600','--desk-line':'#150c00','--win-bg':'#1c1000','--win-parch':'#221400','--win-bdr':'#cc8800','--tb-from':'#2a1800','--tb-to':'#1a0e00','--tb-txt':'#ffaa00','--btn':'#3a2200','--btn-hi':'#503000','--btn-sh':'#aa6600','--text':'#ffaa00','--muted':'#aa6600','--accent':'#ffaa00','--input-bg':'#130e00','--bar':'#050300','--bar-txt':'#ffaa00','--folder-bg':'#1a1000'},
+  moonlight:     {'--desk':'#0f0e1a','--desk-line':'#1a1830','--win-bg':'#e8e4f8','--win-parch':'#ddd8f0','--win-bdr':'#2a2050','--tb-from':'#2a2050','--tb-to':'#1a1440','--tb-txt':'#c0a8f0','--btn':'#c0b8e0','--btn-hi':'#d8d0f0','--btn-sh':'#6050a0','--text':'#1a1440','--muted':'#6050a0','--accent':'#8060d0','--input-bg':'#f0eeff','--bar':'#0a0820','--bar-txt':'#c0a8f0','--folder-bg':'#dcd8ee'},
+  slate:         {'--desk':'#0d1117','--desk-line':'#161b22','--win-bg':'#e6edf3','--win-parch':'#d8e2ed','--win-bdr':'#1c2128','--tb-from':'#1c2128','--tb-to':'#0d1117','--tb-txt':'#79c0ff','--btn':'#c0cad6','--btn-hi':'#d8e4f0','--btn-sh':'#404a56','--text':'#1c2128','--muted':'#404a56','--accent':'#2f81f7','--input-bg':'#f0f6fc','--bar':'#010409','--bar-txt':'#79c0ff','--folder-bg':'#ccd8e4'},
+  terminal:      {'--desk':'#0c0c0c','--desk-line':'#1a1a1a','--win-bg':'#1e1e1e','--win-parch':'#252525','--win-bdr':'#444','--tb-from':'#2d2d2d','--tb-to':'#1a1a1a','--tb-txt':'#cccccc','--btn':'#3c3c3c','--btn-hi':'#505050','--btn-sh':'#888','--text':'#d4d4d4','--muted':'#888','--accent':'#569cd6','--input-bg':'#161616','--bar':'#0a0a0a','--bar-txt':'#cccccc','--folder-bg':'#252525'},
+};
+const THEME_META = {
+  parchment:     {label:'Parchment',      swatch:'#f3e8cc', dark:false},
+  phosphorGreen: {label:'Phosphor Green', swatch:'#001a00', dark:true},
+  phosphorAmber: {label:'Phosphor Amber', swatch:'#1c1000', dark:true},
+  moonlight:     {label:'Moonlight',      swatch:'#e8e4f8', dark:false},
+  slate:         {label:'Slate',          swatch:'#e6edf3', dark:false},
+  terminal:      {label:'Terminal Dark',  swatch:'#1e1e1e', dark:true},
+};
+
+function applyTheme(name){
+  const t = THEMES[name] || THEMES.parchment;
+  const root = document.documentElement;
+  Object.entries(t).forEach(([k,v])=>root.style.setProperty(k,v));
+}
+
+// Barrel distortion — canvas displacement map → SVG feDisplacementMap
+let _barrelCanvas = null;
+function buildBarrelMap(k){
+  const W = 128;
+  if(!_barrelCanvas) _barrelCanvas = document.createElement('canvas');
+  _barrelCanvas.width = _barrelCanvas.height = W;
+  const ctx = _barrelCanvas.getContext('2d');
+  const id = ctx.createImageData(W,W); const d = id.data;
+  const maxD = k * 2; // headroom: max |dx| at corner ≈ k*(√2/(1+2k))
+  for(let y=0;y<W;y++) for(let x=0;x<W;x++){
+    const nx=(x/(W-1))*2-1, ny=(y/(W-1))*2-1;
+    const r2=nx*nx+ny*ny;
+    const f=1/(1+k*r2)-1; // negative: pulls source toward center
+    const dx=nx*f, dy=ny*f;
+    const i=(y*W+x)*4;
+    d[i]  =Math.max(0,Math.min(255,(dx/(maxD*2)+0.5)*255));
+    d[i+1]=Math.max(0,Math.min(255,(dy/(maxD*2)+0.5)*255));
+    d[i+2]=128; d[i+3]=255;
+  }
+  ctx.putImageData(id,0,0);
+  return _barrelCanvas.toDataURL();
+}
+const BARREL_K = {off:0, subtle:0.05, medium:0.12, strong:0.22};
+function applyBarrel(level){
+  const k=BARREL_K[level]||0;
+  const feImg=document.getElementById('barrel-feimg');
+  const feDm =document.getElementById('barrel-fedm');
+  const vig  =document.getElementById('crt-vignette');
+  if(!k||!feImg||!feDm){ document.body.style.filter=''; if(vig)vig.style.opacity='0'; return; }
+  feImg.setAttribute('href', buildBarrelMap(k));
+  // scale (pixels): at edge of screen, displacement ≈ k * half-screen-size
+  feDm.setAttribute('scale', k * 4 * Math.min(window.innerWidth,window.innerHeight));
+  document.body.style.filter='url(#barrel-svgf)';
+  if(vig) vig.style.opacity='1';
+}
+
+function applyScanlines(on){ document.body.classList.toggle('scanlines-off',!on); }
+
+function applyPrefs(){
+  applyTheme(prefs.theme);
+  applyBarrel(prefs.barrel);
+  applyScanlines(prefs.scanlines);
+}
+
+// ── PREFERENCES WINDOW ────────────────────────────────────
+function openPreferences(){
+  createWindow({id:'prefs',title:'Preferences',icon:'⚙',width:460,height:480,statusText:'Changes apply instantly · saved locally',buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body"><div id="prefs-body"></div></div>`;
+    renderPrefsBody();
+  }});
+}
+
+function renderPrefsBody(){
+  const el=document.getElementById('prefs-body'); if(!el) return;
+  const barrelLevels=['off','subtle','medium','strong'];
+  el.innerHTML=`
+    <div class="section-label" style="margin-bottom:10px">COLOR THEME</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px">
+      ${Object.entries(THEME_META).map(([k,m])=>`
+        <div onclick="prefs.theme='${k}';applyTheme('${k}');savePrefs();renderPrefsBody()"
+          style="display:flex;align-items:center;gap:8px;padding:7px 10px;
+          border:1px solid ${prefs.theme===k?'var(--accent)':'var(--btn-sh)'};
+          background:${prefs.theme===k?'rgba(200,120,32,.13)':'transparent'};
+          cursor:pointer;font-family:'VT323',monospace;font-size:15px;color:var(--text)">
+          <span style="width:20px;height:20px;background:${m.swatch};border:1px solid var(--btn-sh);display:inline-block;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)"></span>
+          ${esc(m.label)}${prefs.theme===k?' ✓':''}
+        </div>`).join('')}
+    </div>
+    <hr class="divider">
+    <div class="section-label" style="margin:12px 0 8px">DISPLAY</div>
+    <div class="form-row">
+      <label>Barrel / Lens Distortion</label>
+      <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap">
+        ${barrelLevels.map(b=>`
+          <button class="win-btn" onclick="prefs.barrel='${b}';applyBarrel('${b}');savePrefs();renderPrefsBody()"
+            style="${prefs.barrel===b?'outline:1px solid var(--accent);outline-offset:1px':''}">
+            [ ${b} ]
+          </button>`).join('')}
+      </div>
+    </div>
+    <div class="form-row" style="margin-top:12px;display:flex;align-items:center;gap:12px">
+      <label style="margin:0;flex:1">CRT Scanlines</label>
+      <button class="win-btn" onclick="prefs.scanlines=!prefs.scanlines;applyScanlines(prefs.scanlines);savePrefs();renderPrefsBody()"
+        style="${prefs.scanlines?'outline:1px solid var(--accent);outline-offset:1px':''}">
+        [ ${prefs.scanlines?'ON':'OFF'} ]
+      </button>
+    </div>
+    <hr class="divider" style="margin-top:14px">
+    <div style="margin-top:10px;font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted)">
+      Preferences are saved in your browser. Right-click the desktop to reopen this window.
+    </div>`;
+}
 
 (async()=>{
   updateAdminBadge();
   await bootData();
+  applyPrefs(); // apply saved theme/barrel/scanlines after data loaded
   setTimeout(()=>openReviews(),200);
   if(!_lsOk) setTimeout(()=>toast('⚠ Storage disabled — changes won\'t persist'),1200);
   if(!remoteSnapshot) setTimeout(()=>toast('ℹ data.json not found — showing defaults'),1600);
