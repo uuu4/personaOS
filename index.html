@@ -611,8 +611,10 @@ async function publishToWorker(){
       body: JSON.stringify({ password: pass, data: { papers, cv }, message: msg })
     });
     if(r.ok){
+      // Clear local draft — the commit IS the published state.
+      // Don't re-fetch data.json: GitHub Pages takes 30-90 sec to redeploy,
+      // so bootData() would pull stale remote and clobber in-memory cv/papers.
       lsRemove(STORE_KEY); lsRemove(CV_KEY);
-      await bootData();
       renderFolderGrid(); renderFolderToolbar(); refreshOpenPapers();
       if(document.getElementById('cv-body')) renderCV();
       toast('Published ✓ — live in ~30 sec');
