@@ -122,26 +122,41 @@ body.scanlines-off::after { display: none !important; }
 .titlebar {
   background: linear-gradient(to right, var(--tb-from), var(--tb-to));
   color: var(--tb-txt);
-  padding: 4px 6px;
+  padding: 5px 8px;
   display: flex; align-items: center; gap: 6px;
   cursor: move;
   font-family: 'VT323', monospace;
   font-size: 17px; letter-spacing: .5px;
-  border-bottom: 1px solid #3a2010;
+  border-bottom: 1px solid var(--win-bdr);
   flex-shrink: 0;
 }
 .titlebar .title-text { flex: 1; }
+.wbtn-group { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
 .wbtn {
-  width: 16px; height: 14px;
-  background: var(--btn);
-  border: 1px solid var(--win-bdr);
-  box-shadow: inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh);
-  cursor: pointer; font-size: 8px; color: var(--text);
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 0;            /* hide label by default */
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; font-family: monospace;
+  flex-shrink: 0;
+  transition: filter .12s;
+  position: relative;
 }
-.wbtn:hover  { background: var(--btn-hi); }
-.wbtn:active { box-shadow: inset -1px -1px 0 var(--btn-hi), inset 1px 1px 0 var(--btn-sh); }
+.wbtn::after {
+  content: attr(data-sym);
+  font-size: 9px;
+  line-height: 1;
+  color: rgba(0,0,0,0.5);
+  opacity: 0;
+  transition: opacity .12s;
+  font-family: monospace;
+  font-weight: bold;
+}
+.titlebar:hover .wbtn::after { opacity: 1; }
+.wbtn:active { filter: brightness(.75); }
+.wbtn-min  { background: var(--muted); }
+.wbtn-close{ background: var(--accent); }
 
 .window-body {
   flex: 1; overflow-y: auto;
@@ -857,7 +872,7 @@ function toggleMaximize(win){
 function makeDraggable(win, handle) {
   let dx,dy,dragging=false,moved=false;
   handle.addEventListener('mousedown', e=>{
-    if(e.target.classList.contains('wbtn'))return;
+    if(e.target.closest('.wbtn-group'))return;
     dragging=true; moved=false;
     dx=e.clientX-win.offsetLeft; dy=e.clientY-win.offsetTop;
     bringToFront(win); e.preventDefault();
@@ -872,7 +887,7 @@ function makeDraggable(win, handle) {
   document.addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; } });
   // Double-click titlebar to maximize/restore
   handle.addEventListener('dblclick', e=>{
-    if(e.target.classList.contains('wbtn'))return;
+    if(e.target.closest('.wbtn-group'))return;
     toggleMaximize(win); playSound('open');
   });
 }
@@ -890,14 +905,14 @@ function createWindow({id,title,icon='📄',width=480,height=440,x,y,buildBody,s
   const win=document.createElement('div');
   win.className='window'; win.dataset.winId=id;
   win.style.cssText=`width:${width}px;height:${height}px;left:${x!==undefined?x:Math.max(20,30+Math.random()*(window.innerWidth-width-80))}px;top:${y!==undefined?y:Math.max(20,40+Math.random()*(window.innerHeight-height-80))}px`;
-  win.innerHTML=`<div class="titlebar"><span class="title-text">${icon} ${title}</span><button class="wbtn" title="Minimize">_</button><button class="wbtn close-x" title="Close">✕</button></div><div class="win-inner" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden"></div><div class="window-statusbar">${statusText}</div><div class="resize-handle"></div>`;
+  win.innerHTML=`<div class="titlebar"><div class="wbtn-group"><button class="wbtn wbtn-min" title="Minimize" data-sym="–"></button><button class="wbtn wbtn-close close-x" title="Close" data-sym="✕"></button></div><span class="title-text">${icon} ${title}</span></div><div class="win-inner" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden"></div><div class="window-statusbar">${statusText}</div><div class="resize-handle"></div>`;
   document.body.appendChild(win);
   openWindows[id]=win;
   buildBody(win.querySelector('.win-inner'));
   makeDraggable(win,win.querySelector('.titlebar'));
   makeResizable(win);
   win.querySelector('.close-x').onclick=()=>closeWindow(id);
-  win.querySelectorAll('.wbtn')[0].onclick=()=>minimizeWindow(id);
+  win.querySelector('.wbtn-min').onclick=()=>minimizeWindow(id);
   win.addEventListener('mousedown',()=>bringToFront(win));
   addTaskbarBtn(id,icon+' '+title);
   bringToFront(win);
