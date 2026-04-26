@@ -42,6 +42,7 @@
   --folder-bg: #e8d8b0;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
+html { background: var(--desk); } /* barrel distortion transparent edges show desk color */
 
 body {
   font-family: 'VT323', monospace;
@@ -503,8 +504,18 @@ body.scanlines-off::after { display: none !important; }
 
 <div id="toast"></div>
 
-<!-- CRT vignette + barrel overlay — GPU-only, no SVG filter -->
-<div id="crt-vignette" style="position:fixed;inset:0;pointer-events:none;z-index:99998;opacity:0;transition:opacity .3s ease;background:radial-gradient(ellipse 78% 78% at 50% 50%, transparent 52%, rgba(0,0,0,0.92) 100%)"></div>
+<!-- SVG barrel distortion filter -->
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute;overflow:hidden;pointer-events:none">
+  <defs>
+    <filter id="barrel-svgf" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feImage id="barrel-feimg" preserveAspectRatio="none" result="bmap"/>
+      <feDisplacementMap id="barrel-fedm" in="SourceGraphic" in2="bmap"
+        xChannelSelector="R" yChannelSelector="G" scale="0"/>
+    </filter>
+  </defs>
+</svg>
+<!-- CRT vignette overlay -->
+<div id="crt-vignette" style="position:fixed;inset:0;pointer-events:none;z-index:99998;opacity:0;transition:opacity .3s;background:radial-gradient(ellipse 76% 76% at 50% 50%, transparent 50%, rgba(0,0,0,0.93) 100%)"></div>
 
 <script>
 // ── SAFE STORAGE ──────────────────────────────────────────
@@ -770,16 +781,24 @@ function bringToFront(win) {
 }
 function makeDraggable(win, handle) {
   let dx,dy,dragging=false;
-  handle.addEventListener('mousedown', e=>{ if(e.target.classList.contains('wbtn'))return; dragging=true; dx=e.clientX-win.offsetLeft; dy=e.clientY-win.offsetTop; bringToFront(win); e.preventDefault(); });
-  document.addEventListener('mousemove', e=>{ if(!dragging)return; win.style.left=Math.max(0,Math.min(e.clientX-dx,window.innerWidth-win.offsetWidth))+'px'; win.style.top=Math.max(0,Math.min(e.clientY-dy,window.innerHeight-34-win.offsetHeight))+'px'; });
-  document.addEventListener('mouseup', ()=>{ dragging=false; });
+  handle.addEventListener('mousedown', e=>{
+    if(e.target.classList.contains('wbtn'))return;
+    dragging=true; dx=e.clientX-win.offsetLeft; dy=e.clientY-win.offsetTop;
+    bringToFront(win); barrelPause(); e.preventDefault();
+  });
+  document.addEventListener('mousemove', e=>{
+    if(!dragging)return;
+    win.style.left=Math.max(0,Math.min(e.clientX-dx,window.innerWidth-win.offsetWidth))+'px';
+    win.style.top=Math.max(0,Math.min(e.clientY-dy,window.innerHeight-34-win.offsetHeight))+'px';
+  });
+  document.addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; barrelResume(); } });
 }
 function makeResizable(win) {
   const h=win.querySelector('.resize-handle'); if(!h)return;
   let r=false,sx,sy,sw,sh;
-  h.addEventListener('mousedown',e=>{r=true;sx=e.clientX;sy=e.clientY;sw=win.offsetWidth;sh=win.offsetHeight;e.preventDefault();e.stopPropagation();});
+  h.addEventListener('mousedown',e=>{r=true;sx=e.clientX;sy=e.clientY;sw=win.offsetWidth;sh=win.offsetHeight;barrelPause();e.preventDefault();e.stopPropagation();});
   document.addEventListener('mousemove',e=>{if(!r)return;win.style.width=Math.max(300,sw+e.clientX-sx)+'px';win.style.height=Math.max(160,sh+e.clientY-sy)+'px';});
-  document.addEventListener('mouseup',()=>{r=false;});
+  document.addEventListener('mouseup',()=>{ if(r){ r=false; barrelResume(); } });
 }
 function createWindow({id,title,icon='📄',width=480,height=440,x,y,buildBody,statusText=''}) {
   if(openWindows[id]){const w=openWindows[id];w.classList.remove('minimized');bringToFront(w);updateTaskbarBtn(id,false);return w;}
@@ -1052,31 +1071,60 @@ function applyTheme(name){
 }
 
 // Barrel distortion — canvas displacement map → SVG feDisplacementMap
-// Barrel / fisheye — pure CSS transform (GPU-accelerated, no SVG filter, 60 fps smooth).
-// Simulates CRT curvature with perspective + scale + border-radius + vignette.
-// Levels map to [scale, perspective(px), borderRadius(px), vignetteOpacity]
-const BARREL_LEVELS = {
-  off:    [1,     0,    0,  0   ],
-  subtle: [0.97,  900,  8,  0.65],
-  medium: [0.94,  600,  14, 0.80],
-  strong: [0.90,  380,  22, 0.92],
-};
+// Barrel / fisheye — SVG feDisplacementMap with outward push (true fisheye).
+// GPU layer via will-change:filter. Filter paused during window drag to prevent glitches.
+let _barrelCanvas = null, _lastBarrelK = -1;
+function buildBarrelMap(k){
+  if(k === _lastBarrelK && _barrelCanvas) return _barrelCanvas._url;
+  const W = 128;
+  if(!_barrelCanvas) _barrelCanvas = document.createElement('canvas');
+  _barrelCanvas.width = _barrelCanvas.height = W;
+  const ctx = _barrelCanvas.getContext('2d');
+  const id = ctx.createImageData(W,W); const d = id.data;
+  const maxD = k * 2;
+  for(let y=0;y<W;y++) for(let x=0;x<W;x++){
+    const nx=(x/(W-1))*2-1, ny=(y/(W-1))*2-1;
+    const r2=nx*nx+ny*ny;
+    // Outward push: barrel/fisheye — edges pushed away from center
+    const dx=nx*k*r2, dy=ny*k*r2;
+    const i=(y*W+x)*4;
+    d[i]  =Math.max(0,Math.min(255,(dx/(maxD*2)+0.5)*255));
+    d[i+1]=Math.max(0,Math.min(255,(dy/(maxD*2)+0.5)*255));
+    d[i+2]=128; d[i+3]=255;
+  }
+  ctx.putImageData(id,0,0);
+  _barrelCanvas._url = _barrelCanvas.toDataURL();
+  _lastBarrelK = k;
+  return _barrelCanvas._url;
+}
+
+const BARREL_K = {off:0, subtle:0.10, medium:0.22, strong:0.42};
+let _barrelActive = false;
+
 function applyBarrel(level){
-  const [scale, persp, radius, vigOp] = BARREL_LEVELS[level] || BARREL_LEVELS.off;
+  const k = BARREL_K[level]||0;
   const vig = document.getElementById('crt-vignette');
-  if(level === 'off'){
-    document.body.style.transform = '';
-    document.body.style.borderRadius = '';
-    document.body.style.overflow = 'hidden';
-    if(vig) vig.style.opacity = '0';
+  _barrelActive = k > 0;
+  if(!k){
+    document.body.style.filter='';
+    document.body.style.willChange='';
+    if(vig) vig.style.opacity='0';
     return;
   }
-  // perspective() creates the 3D curved surface feel; scale() compensates for shrinkage
-  document.body.style.transform = `perspective(${persp}px) scale(${scale})`;
-  document.body.style.borderRadius = `${radius}px`;
-  document.body.style.overflow = 'hidden';
-  if(vig){ vig.style.opacity = String(vigOp); }
+  const feImg=document.getElementById('barrel-feimg');
+  const feDm =document.getElementById('barrel-fedm');
+  if(!feImg||!feDm) return;
+  feImg.setAttribute('href', buildBarrelMap(k));
+  const S = Math.min(window.innerWidth, window.innerHeight);
+  feDm.setAttribute('scale', k * S * 2.2);
+  document.body.style.willChange='filter';
+  document.body.style.filter='url(#barrel-svgf)';
+  if(vig) vig.style.opacity = k > 0.2 ? '1' : '0.7';
 }
+
+// Pause barrel during window drag to prevent glitches, resume on release
+function barrelPause(){ if(_barrelActive) document.body.style.filter='none'; }
+function barrelResume(){ if(_barrelActive) document.body.style.filter='url(#barrel-svgf)'; }
 
 function applyScanlines(on){ document.body.classList.toggle('scanlines-off',!on); }
 
