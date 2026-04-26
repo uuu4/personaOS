@@ -116,7 +116,8 @@ body.scanlines-off::after { display: none !important; }
 }
 .window.focused  { z-index: 100; }
 .window.minimized{ display: none; }
-.window.closing  { animation: winClose .10s steps(2) both; }
+.window.closing    { animation: winClose .10s steps(2) both; }
+.window.maximized  { left:0!important;top:0!important;width:100vw!important;height:calc(100vh - 34px)!important;transition:none; }
 
 .titlebar {
   background: linear-gradient(to right, var(--tb-from), var(--tb-to));
@@ -209,6 +210,46 @@ body.scanlines-off::after { display: none !important; }
 .preview-card .pc-title { font-family:'Pixelify Sans',sans-serif; font-size:12px; color:var(--tb-from); line-height:1.3; margin-bottom:4px; font-weight:600; }
 .preview-card .pc-meta  { font-family:'Courier Prime',monospace; font-size:11px; color:var(--muted); font-style:italic; margin-bottom:6px; }
 .preview-card .pc-stars { font-size:16px; letter-spacing:2px; }
+
+/* ── STICKY NOTE ── */
+#sticky-note {
+  position: absolute;
+  min-width: 180px; max-width: 260px;
+  background: #fdf6a3;
+  border: 1px solid #d4c040;
+  box-shadow: 3px 3px 0 rgba(0,0,0,0.35);
+  padding: 10px 12px 14px;
+  font-family: 'Courier Prime', monospace;
+  font-size: 13px;
+  color: #2a2000;
+  line-height: 1.5;
+  cursor: move;
+  z-index: 50;
+  user-select: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+#sticky-note::before {
+  content: '';
+  display: block;
+  height: 6px;
+  margin: -10px -12px 8px;
+  background: #e8d820;
+  border-bottom: 1px solid #c8b818;
+}
+#sticky-note.hidden { display: none; }
+#sticky-note .sticky-edit-btn {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #886600;
+  background: none;
+  border: 1px dashed #aaa020;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-family: 'VT323', monospace;
+  width: 100%;
+}
 
 /* ──  WINDOW ── */
 .-layout { display: flex; gap: 12px; margin-bottom: 10px; }
@@ -500,10 +541,12 @@ body.scanlines-off::after { display: none !important; }
   <div class="ctx-item" onclick="openReviews();closeCtx()">📁 Open Reviews</div>
   <div class="ctx-item" onclick="openAbout();closeCtx()">🪪 About Me</div>
   <div class="ctx-sep"></div>
+  <div class="ctx-item" id="ctx-note-item" onclick="openStickyEditor();closeCtx()" style="display:none">📝 Edit Note</div>
   <div class="ctx-item" onclick="openPreferences();closeCtx()">⚙ Preferences</div>
 </div>
 
 <div id="toast"></div>
+<div id="sticky-note" class="hidden"></div>
 
 <!-- CRT vignette overlay -->
 <div id="crt-vignette" style="position:fixed;inset:0;pointer-events:none;z-index:99998;opacity:0;transition:opacity .3s;background:radial-gradient(ellipse 68% 68% at 50% 50%, transparent 42%, rgba(0,0,0,0.97) 100%)"></div>
@@ -617,15 +660,16 @@ async function publishToWorker(){
     const r = await fetch(WORKER_URL.replace(/\/$/,'') + '/publish', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ password: pass, data: { papers, cv }, message: msg })
+      body: JSON.stringify({ password: pass, data: { papers, cv, note: stickyNote }, message: msg })
     });
     if(r.ok){
       // Clear local draft — the commit IS the published state.
       // Don't re-fetch data.json: GitHub Pages takes 30-90 sec to redeploy,
       // so bootData() would pull stale remote and clobber in-memory cv/papers.
-      lsRemove(STORE_KEY); lsRemove(CV_KEY);
+      lsRemove(STORE_KEY); lsRemove(CV_KEY); lsRemove(NOTE_KEY);
       renderFolderGrid(); renderFolderToolbar(); refreshOpenPapers();
       if(document.getElementById('cv-body')) renderCV();
+      renderStickyNote();
       toast('Published ✓ — live in ~30 sec');
     } else if(r.status===401){
       try { sessionStorage.removeItem(PW_SESSION_KEY); } catch(e){}
@@ -652,7 +696,7 @@ if (typeof pdfjsLib !== 'undefined') {
 }
 
 // ── DATA ─────────────────────────────────────────────────
-const STORE_KEY = 'pl-v4', CV_KEY = 'pl-cv-v4';
+const STORE_KEY = 'pl-v4', CV_KEY = 'pl-cv-v4', NOTE_KEY = 'pl-note-v4';
 
 const DEFAULT_PAPERS = [
   {id:'p1',title:'Attention Is All You Need',authors:'Vaswani, A., Shazeer, N., Parmar, N., et al.',year:2017,venue:'NeurIPS',tags:['transformers','attention','NLP'],abstract:'The dominant sequence transduction models are based on complex recurrent or convolutional neural networks. We propose the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.',rating:5,notes:'Revolutionary paper. The multi-head attention mechanism is elegant. Positional encoding section needs re-reading.',icon:'🔬',pdfUrl:''}
@@ -666,6 +710,7 @@ const DEFAULT_CV = {
 
 let papers = [];
 let cv = { ...DEFAULT_CV };
+let stickyNote = '';       // plain text, published in data.json
 let remoteSnapshot = null;
 
 async function loadRemoteData(){
@@ -680,17 +725,21 @@ async function bootData(){
   remoteSnapshot = await loadRemoteData();
   const tryParse = k => { try { return JSON.parse(lsGet(k)||'null'); } catch(e){ return null; } };
   if (isAdmin()) {
-    papers = tryParse(STORE_KEY) || (remoteSnapshot && remoteSnapshot.papers) || DEFAULT_PAPERS;
-    cv     = tryParse(CV_KEY)    || (remoteSnapshot && remoteSnapshot.cv)     || { ...DEFAULT_CV };
+    papers     = tryParse(STORE_KEY) || (remoteSnapshot && remoteSnapshot.papers) || DEFAULT_PAPERS;
+    cv         = tryParse(CV_KEY)    || (remoteSnapshot && remoteSnapshot.cv)     || { ...DEFAULT_CV };
+    stickyNote = tryParse(NOTE_KEY)  ?? (remoteSnapshot && remoteSnapshot.note)   ?? '';
   } else {
-    papers = (remoteSnapshot && remoteSnapshot.papers) || DEFAULT_PAPERS;
-    cv     = (remoteSnapshot && remoteSnapshot.cv)     || { ...DEFAULT_CV };
+    papers     = (remoteSnapshot && remoteSnapshot.papers) || DEFAULT_PAPERS;
+    cv         = (remoteSnapshot && remoteSnapshot.cv)     || { ...DEFAULT_CV };
+    stickyNote = (remoteSnapshot && remoteSnapshot.note)   || '';
   }
+  renderStickyNote();
 }
 
 // Visitors don't write to localStorage. Only admin drafts persist.
 function savePapers(){ if(isAdmin()) lsSet(STORE_KEY, JSON.stringify(papers)); }
 function saveCV()    { if(isAdmin()) lsSet(CV_KEY,    JSON.stringify(cv)); }
+function saveNote()  { if(isAdmin()) lsSet(NOTE_KEY,  JSON.stringify(stickyNote)); }
 
 function exportData(){
   const payload = { papers, cv, exportedAt: new Date().toISOString() };
@@ -794,19 +843,38 @@ function bringToFront(win) {
   document.querySelectorAll('.window').forEach(w=>w.classList.remove('focused'));
   win.classList.add('focused');
 }
+function toggleMaximize(win){
+  if(win.classList.contains('maximized')){
+    win.classList.remove('maximized');
+    const s=win._prevState||{};
+    win.style.left=s.left||'60px'; win.style.top=s.top||'40px';
+    win.style.width=s.width||'480px'; win.style.height=s.height||'440px';
+  } else {
+    win._prevState={left:win.style.left,top:win.style.top,width:win.style.width,height:win.style.height};
+    win.classList.add('maximized');
+  }
+}
 function makeDraggable(win, handle) {
-  let dx,dy,dragging=false;
+  let dx,dy,dragging=false,moved=false;
   handle.addEventListener('mousedown', e=>{
     if(e.target.classList.contains('wbtn'))return;
-    dragging=true; dx=e.clientX-win.offsetLeft; dy=e.clientY-win.offsetTop;
+    dragging=true; moved=false;
+    dx=e.clientX-win.offsetLeft; dy=e.clientY-win.offsetTop;
     bringToFront(win); e.preventDefault();
   });
   document.addEventListener('mousemove', e=>{
     if(!dragging)return;
+    moved=true;
+    if(win.classList.contains('maximized')) win.classList.remove('maximized');
     win.style.left=Math.max(0,Math.min(e.clientX-dx,window.innerWidth-win.offsetWidth))+'px';
     win.style.top=Math.max(0,Math.min(e.clientY-dy,window.innerHeight-34-win.offsetHeight))+'px';
   });
   document.addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; } });
+  // Double-click titlebar to maximize/restore
+  handle.addEventListener('dblclick', e=>{
+    if(e.target.classList.contains('wbtn'))return;
+    toggleMaximize(win); playSound('open');
+  });
 }
 function makeResizable(win) {
   const h=win.querySelector('.resize-handle'); if(!h)return;
@@ -1055,7 +1123,7 @@ function closeStartMenu(){document.getElementById('start-menu').classList.remove
 function closeCtx(){document.getElementById('ctx-menu').classList.remove('open');}
 function selectIcon(id){document.querySelectorAll('.d-icon').forEach(x=>x.classList.remove('selected'));document.getElementById(id)?.classList.add('selected');}
 
-document.getElementById('desktop').addEventListener('contextmenu',e=>{e.preventDefault();const m=document.getElementById('ctx-menu');m.style.left=e.clientX+'px';m.style.top=Math.min(e.clientY,window.innerHeight-140)+'px';m.classList.add('open');});
+document.getElementById('desktop').addEventListener('contextmenu',e=>{e.preventDefault();const m=document.getElementById('ctx-menu');m.style.left=e.clientX+'px';m.style.top=Math.min(e.clientY,window.innerHeight-140)+'px';const ni=document.getElementById('ctx-note-item');if(ni)ni.style.display=isAdmin()?'block':'none';m.classList.add('open');});
 document.addEventListener('click',()=>{closeCtx();closeStartMenu();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeCtx();closeStartMenu();}});
 
@@ -1148,6 +1216,75 @@ function applyPrefs(){
   applyScanlines(prefs.scanlines);
   applyDeskPattern(prefs.deskPattern);
 
+}
+
+// ── STICKY NOTE ───────────────────────────────────────────
+function renderStickyNote(){
+  const el = document.getElementById('sticky-note');
+  if(!el) return;
+  if(!stickyNote && !isAdmin()){
+    el.classList.add('hidden'); return;
+  }
+  el.classList.remove('hidden');
+  // Restore saved position
+  const pos = (() => { try { return JSON.parse(localStorage.getItem('pl-note-pos')||'null'); } catch(e){ return null; } })();
+  if(pos){ el.style.left=pos.x+'px'; el.style.top=pos.y+'px'; }
+  else { el.style.left='calc(100vw - 290px)'; el.style.top='60px'; }
+
+  const editBtn = isAdmin()
+    ? `<button class="sticky-edit-btn" onclick="openStickyEditor()">[ edit note ]</button>`
+    : '';
+  el.innerHTML = `<div class="sticky-text">${esc(stickyNote||'').replace(/\n/g,'<br>')}</div>${editBtn}`;
+
+  // Make draggable (independent of window system)
+  let dragging=false, ox=0, oy=0;
+  el.addEventListener('mousedown', e=>{
+    if(e.target.classList.contains('sticky-edit-btn')) return;
+    dragging=true; ox=e.clientX-el.offsetLeft; oy=e.clientY-el.offsetTop;
+    el.style.zIndex=60; e.preventDefault();
+  });
+  document.addEventListener('mousemove', e=>{
+    if(!dragging) return;
+    el.style.left=Math.max(0,e.clientX-ox)+'px';
+    el.style.top=Math.max(0,e.clientY-oy)+'px';
+  });
+  document.addEventListener('mouseup', ()=>{
+    if(!dragging) return;
+    dragging=false;
+    try { localStorage.setItem('pl-note-pos', JSON.stringify({x:el.offsetLeft,y:el.offsetTop})); } catch(e){}
+  });
+}
+
+function openStickyEditor(){
+  if(!isAdmin()) return;
+  createWindow({id:'sticky-editor',title:'Sticky Note',icon:'📝',width:360,height:280,
+    statusText:'Publish to make visible to visitors',
+    buildBody:inner=>{
+      inner.innerHTML=`<div class="window-body">
+        <div class="section-label" style="margin-bottom:8px">NOTE TEXT</div>
+        <textarea class="form-input" id="sticky-textarea" rows="7"
+          style="width:100%;resize:vertical;font-family:'Courier Prime',monospace;font-size:13px;line-height:1.5"
+          placeholder="Write a short note for your visitors…">${esc(stickyNote)}</textarea>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="win-btn" onclick="saveStickyDraft()">[ Save Draft ]</button>
+          <button class="win-btn" style="color:var(--muted);font-size:12px"
+            onclick="stickyNote='';saveNote();renderStickyNote();closeWindow('sticky-editor');toast('Note cleared')">
+            [ Clear ]
+          </button>
+        </div>
+        <div style="margin-top:8px;font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted)">
+          Publish via 🚀 Publish to make it visible to everyone.
+        </div>
+      </div>`;
+  }});
+}
+function saveStickyDraft(){
+  const ta=document.getElementById('sticky-textarea'); if(!ta) return;
+  stickyNote=ta.value;
+  saveNote();
+  renderStickyNote();
+  closeWindow('sticky-editor');
+  toast('Note saved — Publish to go live');
 }
 
 // ── PREFERENCES WINDOW ────────────────────────────────────
