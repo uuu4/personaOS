@@ -133,7 +133,7 @@ body.scanlines-off::after { display: none !important; }
 .titlebar .title-text { flex: 1; }
 .wbtn-group { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 .wbtn {
-  width: 36px; height: 14px;
+  width: 52px; height: 14px;
   border-radius: 2px;
   border: none;
   cursor: pointer;
@@ -156,6 +156,7 @@ body.scanlines-off::after { display: none !important; }
 .titlebar:hover .wbtn::after { opacity: 1; }
 .wbtn:active { filter: brightness(.75); }
 .wbtn-min  { background: var(--muted); }
+.wbtn-max  { background: var(--btn-sh); }
 .wbtn-close{ background: var(--accent); }
 
 .window-body {
@@ -905,7 +906,7 @@ function createWindow({id,title,icon='📄',width=480,height=440,x,y,buildBody,s
   const win=document.createElement('div');
   win.className='window'; win.dataset.winId=id;
   win.style.cssText=`width:${width}px;height:${height}px;left:${x!==undefined?x:Math.max(20,30+Math.random()*(window.innerWidth-width-80))}px;top:${y!==undefined?y:Math.max(20,40+Math.random()*(window.innerHeight-height-80))}px`;
-  win.innerHTML=`<div class="titlebar"><span class="title-text">${icon} ${title}</span><div class="wbtn-group"><button class="wbtn wbtn-min" title="Minimize" data-sym="–"></button><button class="wbtn wbtn-close close-x" title="Close" data-sym="✕"></button></div></div><div class="win-inner" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden"></div><div class="window-statusbar">${statusText}</div><div class="resize-handle"></div>`;
+  win.innerHTML=`<div class="titlebar"><span class="title-text">${icon} ${title}</span><div class="wbtn-group"><button class="wbtn wbtn-min" title="Minimize" data-sym="–"></button><button class="wbtn wbtn-max" title="Maximize" data-sym="□"></button><button class="wbtn wbtn-close close-x" title="Close" data-sym="✕"></button></div></div><div class="win-inner" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden"></div><div class="window-statusbar">${statusText}</div><div class="resize-handle"></div>`;
   document.body.appendChild(win);
   openWindows[id]=win;
   buildBody(win.querySelector('.win-inner'));
@@ -913,6 +914,7 @@ function createWindow({id,title,icon='📄',width=480,height=440,x,y,buildBody,s
   makeResizable(win);
   win.querySelector('.close-x').onclick=()=>closeWindow(id);
   win.querySelector('.wbtn-min').onclick=()=>minimizeWindow(id);
+  win.querySelector('.wbtn-max').onclick=()=>{toggleMaximize(win);playSound('open');};
   win.addEventListener('mousedown',()=>bringToFront(win));
   addTaskbarBtn(id,icon+' '+title);
   bringToFront(win);
