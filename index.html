@@ -765,9 +765,9 @@ async function renderPdfPreview(url, containerId) {
     // CORS or network error → fall through to iframe fallback
   }
 
-  // ── Fallback: CORS proxy → PDF.js (clean canvas, no UI chrome) ──
+  // ── Fallback: our Cloudflare Worker proxy → PDF.js (clean canvas, no UI chrome) ──
   try {
-    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(clean)}`;
+    const proxyUrl = `${WORKER_URL}/pdf?url=${encodeURIComponent(clean)}`;
     const loadingTask = pdfjsLib.getDocument({ url: proxyUrl, withCredentials: false });
     const pdf = await loadingTask.promise;
     const page = await pdf.getPage(1);

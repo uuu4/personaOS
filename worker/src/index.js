@@ -24,6 +24,37 @@ export default {
       return new Response('personaOS publish worker — POST /verify or /publish', { headers: { ...cors, 'Content-Type': 'text/plain' } });
     }
 
+    // ── GET /pdf?url=… — server-side PDF proxy (bypasses CORS on origin servers) ──
+    if (req.method === 'GET' && url.pathname === '/pdf') {
+      const pdfUrl = url.searchParams.get('url');
+      if (!pdfUrl) return new Response('missing url param', { status: 400, headers: cors });
+      let parsedUrl;
+      try { parsedUrl = new URL(pdfUrl); } catch { return new Response('invalid url', { status: 400, headers: cors }); }
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        return new Response('only http/https allowed', { status: 400, headers: cors });
+      }
+      try {
+        const upstream = await fetch(parsedUrl.href, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; personaOS-pdf-proxy/1.0)',
+            'Accept': 'application/pdf,*/*'
+          },
+          redirect: 'follow'
+        });
+        const ct = upstream.headers.get('Content-Type') || 'application/pdf';
+        return new Response(upstream.body, {
+          status: upstream.status,
+          headers: {
+            ...cors,
+            'Content-Type': ct,
+            'Cache-Control': 'public, max-age=86400'
+          }
+        });
+      } catch (e) {
+        return new Response('fetch failed: ' + String(e.message || e), { status: 502, headers: cors });
+      }
+    }
+
     if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405, cors);
 
     if (!env.GITHUB_TOKEN || !env.ADMIN_PASSWORD) {
