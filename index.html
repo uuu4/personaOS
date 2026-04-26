@@ -503,18 +503,8 @@ body.scanlines-off::after { display: none !important; }
 
 <div id="toast"></div>
 
-<!-- SVG barrel distortion filter (hidden, 0×0) -->
-<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute;overflow:hidden;pointer-events:none">
-  <defs>
-    <filter id="barrel-svgf" x="-12%" y="-12%" width="124%" height="124%" color-interpolation-filters="sRGB">
-      <feImage id="barrel-feimg" preserveAspectRatio="none" result="bmap"/>
-      <feDisplacementMap id="barrel-fedm" in="SourceGraphic" in2="bmap"
-        xChannelSelector="R" yChannelSelector="G" scale="0"/>
-    </filter>
-  </defs>
-</svg>
-<!-- CRT vignette overlay (shown when barrel is on) -->
-<div id="crt-vignette" style="position:fixed;inset:0;pointer-events:none;z-index:99998;opacity:0;transition:opacity .25s;background:radial-gradient(ellipse 75% 75% at 50% 50%, transparent 55%, rgba(0,0,0,0.88) 100%)"></div>
+<!-- CRT vignette + barrel overlay — GPU-only, no SVG filter -->
+<div id="crt-vignette" style="position:fixed;inset:0;pointer-events:none;z-index:99998;opacity:0;transition:opacity .3s ease;background:radial-gradient(ellipse 78% 78% at 50% 50%, transparent 52%, rgba(0,0,0,0.92) 100%)"></div>
 
 <script>
 // ── SAFE STORAGE ──────────────────────────────────────────
@@ -1062,45 +1052,30 @@ function applyTheme(name){
 }
 
 // Barrel distortion — canvas displacement map → SVG feDisplacementMap
-let _barrelCanvas = null;
-function buildBarrelMap(k){
-  const W = 128;
-  if(!_barrelCanvas) _barrelCanvas = document.createElement('canvas');
-  _barrelCanvas.width = _barrelCanvas.height = W;
-  const ctx = _barrelCanvas.getContext('2d');
-  const id = ctx.createImageData(W,W); const d = id.data;
-  // Barrel / fisheye: sample from OUTSIDE the source (outward push).
-  // r' = r*(1 + k*r²) — forward barrel mapping.
-  // For output pixel at (nx,ny), sample from r_src = r*(1+k*r²) direction.
-  // Displacement dx = nx*(k*r²), which is POSITIVE at edges (outward).
-  // Edges sample beyond source bounds → transparent (covered by vignette).
-  const maxD = k * 2; // headroom
-  for(let y=0;y<W;y++) for(let x=0;x<W;x++){
-    const nx=(x/(W-1))*2-1, ny=(y/(W-1))*2-1;
-    const r2=nx*nx+ny*ny;
-    const dx = nx*k*r2;  // positive at edges: push outward
-    const dy = ny*k*r2;
-    const i=(y*W+x)*4;
-    d[i]  =Math.max(0,Math.min(255,(dx/(maxD*2)+0.5)*255));
-    d[i+1]=Math.max(0,Math.min(255,(dy/(maxD*2)+0.5)*255));
-    d[i+2]=128; d[i+3]=255;
-  }
-  ctx.putImageData(id,0,0);
-  return _barrelCanvas.toDataURL();
-}
-const BARREL_K = {off:0, subtle:0.04, medium:0.09, strong:0.18};
+// Barrel / fisheye — pure CSS transform (GPU-accelerated, no SVG filter, 60 fps smooth).
+// Simulates CRT curvature with perspective + scale + border-radius + vignette.
+// Levels map to [scale, perspective(px), borderRadius(px), vignetteOpacity]
+const BARREL_LEVELS = {
+  off:    [1,     0,    0,  0   ],
+  subtle: [0.97,  900,  8,  0.65],
+  medium: [0.94,  600,  14, 0.80],
+  strong: [0.90,  380,  22, 0.92],
+};
 function applyBarrel(level){
-  const k=BARREL_K[level]||0;
-  const feImg=document.getElementById('barrel-feimg');
-  const feDm =document.getElementById('barrel-fedm');
-  const vig  =document.getElementById('crt-vignette');
-  if(!k||!feImg||!feDm){ document.body.style.filter=''; if(vig)vig.style.opacity='0'; return; }
-  feImg.setAttribute('href', buildBarrelMap(k));
-  // scale in pixels; at corner r²=2 → displacement ≈ k*2 (normalized) → *S gives pixels
-  const S = Math.min(window.innerWidth, window.innerHeight);
-  feDm.setAttribute('scale', k * S * 1.2);
-  document.body.style.filter='url(#barrel-svgf)';
-  if(vig) vig.style.opacity='1';
+  const [scale, persp, radius, vigOp] = BARREL_LEVELS[level] || BARREL_LEVELS.off;
+  const vig = document.getElementById('crt-vignette');
+  if(level === 'off'){
+    document.body.style.transform = '';
+    document.body.style.borderRadius = '';
+    document.body.style.overflow = 'hidden';
+    if(vig) vig.style.opacity = '0';
+    return;
+  }
+  // perspective() creates the 3D curved surface feel; scale() compensates for shrinkage
+  document.body.style.transform = `perspective(${persp}px) scale(${scale})`;
+  document.body.style.borderRadius = `${radius}px`;
+  document.body.style.overflow = 'hidden';
+  if(vig){ vig.style.opacity = String(vigOp); }
 }
 
 function applyScanlines(on){ document.body.classList.toggle('scanlines-off',!on); }
