@@ -65,8 +65,6 @@ body::after {
   z-index: 9999;
 }
 body.scanlines-off::after { display: none !important; }
-/* Suppress window open/close animations while barrel filter is active (avoids stutter) */
-body.barrel-active .window { animation: none !important; transition: none !important; }
 
 #desktop {
   position: absolute;
@@ -506,16 +504,6 @@ body.barrel-active .window { animation: none !important; transition: none !impor
 
 <div id="toast"></div>
 
-<!-- SVG barrel distortion filter -->
-<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute;overflow:hidden;pointer-events:none">
-  <defs>
-    <filter id="barrel-svgf" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
-      <feImage id="barrel-feimg" preserveAspectRatio="none" result="bmap"/>
-      <feDisplacementMap id="barrel-fedm" in="SourceGraphic" in2="bmap"
-        xChannelSelector="R" yChannelSelector="G" scale="0"/>
-    </filter>
-  </defs>
-</svg>
 <!-- CRT vignette overlay -->
 <div id="crt-vignette" style="position:fixed;inset:0;pointer-events:none;z-index:99998;opacity:0;transition:opacity .3s;background:radial-gradient(ellipse 68% 68% at 50% 50%, transparent 42%, rgba(0,0,0,0.97) 100%)"></div>
 
@@ -786,21 +774,21 @@ function makeDraggable(win, handle) {
   handle.addEventListener('mousedown', e=>{
     if(e.target.classList.contains('wbtn'))return;
     dragging=true; dx=e.clientX-win.offsetLeft; dy=e.clientY-win.offsetTop;
-    bringToFront(win); barrelPause(); e.preventDefault();
+    bringToFront(win); e.preventDefault();
   });
   document.addEventListener('mousemove', e=>{
     if(!dragging)return;
     win.style.left=Math.max(0,Math.min(e.clientX-dx,window.innerWidth-win.offsetWidth))+'px';
     win.style.top=Math.max(0,Math.min(e.clientY-dy,window.innerHeight-34-win.offsetHeight))+'px';
   });
-  document.addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; barrelResume(); } });
+  document.addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; } });
 }
 function makeResizable(win) {
   const h=win.querySelector('.resize-handle'); if(!h)return;
   let r=false,sx,sy,sw,sh;
-  h.addEventListener('mousedown',e=>{r=true;sx=e.clientX;sy=e.clientY;sw=win.offsetWidth;sh=win.offsetHeight;barrelPause();e.preventDefault();e.stopPropagation();});
+  h.addEventListener('mousedown',e=>{r=true;sx=e.clientX;sy=e.clientY;sw=win.offsetWidth;sh=win.offsetHeight;e.preventDefault();e.stopPropagation();});
   document.addEventListener('mousemove',e=>{if(!r)return;win.style.width=Math.max(300,sw+e.clientX-sx)+'px';win.style.height=Math.max(160,sh+e.clientY-sy)+'px';});
-  document.addEventListener('mouseup',()=>{ if(r){ r=false; barrelResume(); } });
+  document.addEventListener('mouseup',()=>{ if(r){ r=false; } });
 }
 function createWindow({id,title,icon='📄',width=480,height=440,x,y,buildBody,statusText=''}) {
   if(openWindows[id]){const w=openWindows[id];w.classList.remove('minimized');bringToFront(w);updateTaskbarBtn(id,false);return w;}
@@ -1046,7 +1034,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeCtx();closeSta
 // ── PREFERENCES ───────────────────────────────────────────
 const PREFS_KEY = 'pl-prefs';
 let prefs = (()=>{ try{ return JSON.parse(lsGet(PREFS_KEY)||'null') || {}; }catch(e){return {};} })();
-prefs = { theme:'parchment', barrel:'off', scanlines:true, ...prefs };
+prefs = { theme:'parchment', scanlines:true, ...prefs };
+delete prefs.barrel;
 function savePrefs(){ lsSet(PREFS_KEY, JSON.stringify(prefs)); }
 
 const THEMES = {
@@ -1072,103 +1061,11 @@ function applyTheme(name){
   Object.entries(t).forEach(([k,v])=>root.style.setProperty(k,v));
 }
 
-// Barrel / fisheye — SVG feDisplacementMap via canvas-generated displacement texture.
-// Outward barrel formula: dx = nx * k * r²  (pushes edges outward, real CRT curve).
-// k values are intentionally aggressive so straight lines visibly bow.
-const BARREL_K = { off: 0, subtle: 0.18, medium: 0.36, strong: 0.62 };
-const BARREL_VIG = { off: 0.00, subtle: 0.68, medium: 0.86, strong: 0.97 };
-const BARREL_RADIUS = { off: 0, subtle: 10, medium: 20, strong: 34 };
-
-let _barrelActive = false;
-let _lastBarrelK   = -1;
-let _barrelPaused  = false;
-
-function _buildDisplacementMap(k){
-  // Build a 256×256 RG displacement texture.
-  // R channel → X displacement, G channel → Y displacement.
-  // Values are biased: 0.5 = no displacement, >0.5 = push right/down, <0.5 = push left/up.
-  const S = 256;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = S;
-  const ctx = canvas.getContext('2d');
-  const img = ctx.createImageData(S, S);
-  const d   = img.data;
-  for(let y = 0; y < S; y++){
-    for(let x = 0; x < S; x++){
-      // Normalised coords in [-1, 1]
-      const nx = (x / (S - 1)) * 2 - 1;
-      const ny = (y / (S - 1)) * 2 - 1;
-      const r2 = nx*nx + ny*ny;
-      // Outward push: positive → pixel moves toward edge
-      const dx = nx * k * r2;
-      const dy = ny * k * r2;
-      // Map [-1,1] → [0,255] with 0.5 as neutral
-      const ri = Math.round((0.5 + dx * 0.5) * 255);
-      const gi = Math.round((0.5 + dy * 0.5) * 255);
-      const i  = (y * S + x) * 4;
-      d[i]   = Math.max(0, Math.min(255, ri));
-      d[i+1] = Math.max(0, Math.min(255, gi));
-      d[i+2] = 0;
-      d[i+3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return canvas.toDataURL();
-}
-
-function applyBarrel(level){
-  const k      = BARREL_K[level]      ?? 0;
-  const vigOp  = BARREL_VIG[level]    ?? 0;
-  const radius = BARREL_RADIUS[level] ?? 0;
-  const vig    = document.getElementById('crt-vignette');
-  _barrelActive = k > 0;
-
-  if(!_barrelActive){
-    // Remove filter
-    document.body.style.filter       = '';
-    document.body.style.borderRadius = '';
-    document.body.style.willChange   = '';
-    document.body.classList.remove('barrel-active');
-    _lastBarrelK = -1;
-    if(vig) vig.style.opacity = '0';
-    return;
-  }
-
-  // Build displacement map only when k changes
-  if(k !== _lastBarrelK){
-    _lastBarrelK = k;
-    const url  = _buildDisplacementMap(k);
-    const feImg = document.getElementById('barrel-feimg');
-    const feDm  = document.getElementById('barrel-fedm');
-    if(feImg) feImg.setAttribute('href', url);
-    // Scale = how many pixels of max displacement (aggressive)
-    const scale = k * Math.min(window.innerWidth, window.innerHeight) * 1.1;
-    if(feDm)  feDm.setAttribute('scale', String(Math.round(scale)));
-  }
-
-  document.body.style.willChange   = 'filter';
-  document.body.style.filter       = 'url(#barrel-svgf)';
-  document.body.style.borderRadius = `${radius}px`;
-  document.body.classList.add('barrel-active');
-  if(vig) vig.style.opacity = String(vigOp);
-}
-
-function barrelPause(){
-  if(!_barrelActive || _barrelPaused) return;
-  _barrelPaused = true;
-  document.body.style.filter = '';
-}
-function barrelResume(){
-  if(!_barrelActive || !_barrelPaused) return;
-  _barrelPaused = false;
-  document.body.style.filter = 'url(#barrel-svgf)';
-}
 
 function applyScanlines(on){ document.body.classList.toggle('scanlines-off',!on); }
 
 function applyPrefs(){
   applyTheme(prefs.theme);
-  applyBarrel(prefs.barrel);
   applyScanlines(prefs.scanlines);
 }
 
@@ -1182,7 +1079,6 @@ function openPreferences(){
 
 function renderPrefsBody(){
   const el=document.getElementById('prefs-body'); if(!el) return;
-  const barrelLevels=['off','subtle','medium','strong'];
   el.innerHTML=`
     <div class="section-label" style="margin-bottom:10px">COLOR THEME</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px">
@@ -1198,17 +1094,7 @@ function renderPrefsBody(){
     </div>
     <hr class="divider">
     <div class="section-label" style="margin:12px 0 8px">DISPLAY</div>
-    <div class="form-row">
-      <label>Barrel / Lens Distortion</label>
-      <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap">
-        ${barrelLevels.map(b=>`
-          <button class="win-btn" onclick="prefs.barrel='${b}';applyBarrel('${b}');savePrefs();renderPrefsBody()"
-            style="${prefs.barrel===b?'outline:1px solid var(--accent);outline-offset:1px':''}">
-            [ ${b} ]
-          </button>`).join('')}
-      </div>
-    </div>
-    <div class="form-row" style="margin-top:12px;display:flex;align-items:center;gap:12px">
+    <div class="form-row" style="display:flex;align-items:center;gap:12px">
       <label style="margin:0;flex:1">CRT Scanlines</label>
       <button class="win-btn" onclick="prefs.scanlines=!prefs.scanlines;applyScanlines(prefs.scanlines);savePrefs();renderPrefsBody()"
         style="${prefs.scanlines?'outline:1px solid var(--accent);outline-offset:1px':''}">
@@ -1224,7 +1110,7 @@ function renderPrefsBody(){
 (async()=>{
   updateAdminBadge();
   await bootData();
-  applyPrefs(); // apply saved theme/barrel/scanlines after data loaded
+  applyPrefs(); // apply saved theme/scanlines after data loaded
   setTimeout(()=>openReviews(),200);
   if(!_lsOk) setTimeout(()=>toast('⚠ Storage disabled — changes won\'t persist'),1200);
   if(!remoteSnapshot) setTimeout(()=>toast('ℹ data.json not found — showing defaults'),1600);
