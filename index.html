@@ -131,13 +131,13 @@ body.scanlines-off::after { display: none !important; }
   flex-shrink: 0;
 }
 .titlebar .title-text { flex: 1; }
-.wbtn-group { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.wbtn-group { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 .wbtn {
-  width: 13px; height: 13px;
-  border-radius: 50%;
+  width: 36px; height: 14px;
+  border-radius: 2px;
   border: none;
   cursor: pointer;
-  font-size: 0;            /* hide label by default */
+  font-size: 0;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   transition: filter .12s;
@@ -147,7 +147,7 @@ body.scanlines-off::after { display: none !important; }
   content: attr(data-sym);
   font-size: 9px;
   line-height: 1;
-  color: rgba(0,0,0,0.5);
+  color: rgba(0,0,0,0.45);
   opacity: 0;
   transition: opacity .12s;
   font-family: monospace;
@@ -905,7 +905,7 @@ function createWindow({id,title,icon='📄',width=480,height=440,x,y,buildBody,s
   const win=document.createElement('div');
   win.className='window'; win.dataset.winId=id;
   win.style.cssText=`width:${width}px;height:${height}px;left:${x!==undefined?x:Math.max(20,30+Math.random()*(window.innerWidth-width-80))}px;top:${y!==undefined?y:Math.max(20,40+Math.random()*(window.innerHeight-height-80))}px`;
-  win.innerHTML=`<div class="titlebar"><div class="wbtn-group"><button class="wbtn wbtn-min" title="Minimize" data-sym="–"></button><button class="wbtn wbtn-close close-x" title="Close" data-sym="✕"></button></div><span class="title-text">${icon} ${title}</span></div><div class="win-inner" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden"></div><div class="window-statusbar">${statusText}</div><div class="resize-handle"></div>`;
+  win.innerHTML=`<div class="titlebar"><span class="title-text">${icon} ${title}</span><div class="wbtn-group"><button class="wbtn wbtn-min" title="Minimize" data-sym="–"></button><button class="wbtn wbtn-close close-x" title="Close" data-sym="✕"></button></div></div><div class="win-inner" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden"></div><div class="window-statusbar">${statusText}</div><div class="resize-handle"></div>`;
   document.body.appendChild(win);
   openWindows[id]=win;
   buildBody(win.querySelector('.win-inner'));
