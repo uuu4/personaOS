@@ -515,6 +515,91 @@ body.scanlines-off::after { display: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .window, .star.pop, #toast { animation: none !important; transition: none !important; }
 }
+
+/* ── BOOT SCREEN ── */
+#boot-screen {
+  position: fixed; inset: 0; z-index: 999999;
+  background: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Courier Prime', monospace;
+  color: #00ff41;
+  overflow: hidden;
+}
+#boot-screen::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background: repeating-linear-gradient(
+    to bottom, transparent 0px, transparent 3px, rgba(0,255,65,0.04) 3px, rgba(0,255,65,0.04) 4px
+  );
+}
+#boot-screen::after {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(ellipse 75% 75% at 50% 50%, transparent 40%, rgba(0,0,0,0.85) 100%);
+}
+#boot-inner {
+  position: relative; z-index: 1;
+  width: min(660px, 88vw);
+}
+.boot-logo {
+  font-family: 'VT323', monospace;
+  font-size: clamp(36px, 6vw, 56px);
+  letter-spacing: 8px;
+  color: #00ff41;
+  text-shadow: 0 0 12px #00ff41, 0 0 30px #00ff4166, 0 0 60px #00ff4133;
+  margin-bottom: 2px;
+  line-height: 1;
+}
+.boot-badge {
+  font-size: 12px; letter-spacing: 3px;
+  color: #008820; margin-bottom: 20px;
+  text-transform: uppercase;
+}
+.boot-sep {
+  height: 1px; background: #003300;
+  margin: 12px 0; border: none;
+}
+.boot-line {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: 6px;
+  font-size: 13px; line-height: 1.9;
+  align-items: center;
+}
+.boot-label { color: #ffaa00; letter-spacing: 1px; }
+.boot-dots  { color: #002800; font-size: 11px; overflow: hidden; white-space: nowrap; }
+.boot-ok    { color: #ffffff; font-weight: bold; white-space: nowrap; opacity: 0; transition: opacity .08s; }
+.boot-ok.show { opacity: 1; }
+.boot-ready {
+  margin-top: 18px;
+  font-size: 18px; letter-spacing: 3px;
+  color: #00ff41;
+  text-shadow: 0 0 8px #00ff41;
+  font-family: 'VT323', monospace;
+  display: none;
+}
+.boot-cursor-blink {
+  display: inline-block;
+  animation: bootBlink .6s step-end infinite;
+}
+@keyframes bootBlink { 0%,100%{opacity:1} 50%{opacity:0} }
+@keyframes bootFlicker {
+  0%,89%,91%,93%,100% { opacity: 1; }
+  90% { opacity: .7; }
+  92% { opacity: .85; }
+}
+#boot-screen { animation: bootFlicker 5s infinite; }
+@keyframes crtOff {
+  0%   { transform: scaleY(1);    filter: brightness(1)  blur(0px);  opacity: 1; }
+  25%  { transform: scaleY(1);    filter: brightness(5)  blur(0px);  opacity: 1; }
+  50%  { transform: scaleY(.015); filter: brightness(10) blur(3px);  opacity: 1; }
+  75%  { transform: scaleY(.015); filter: brightness(0)  blur(0px);  opacity: 1; }
+  100% { transform: scaleY(.015); filter: brightness(0);              opacity: 0; }
+}
+#boot-screen.crt-off {
+  animation: crtOff .45s ease-in forwards;
+  transform-origin: 50% 50%;
+}
 </style>
 </head>
 <body>
@@ -1370,10 +1455,85 @@ function renderPrefsBody(){
     </div>`;
 }
 
+// ── BOOT SEQUENCE ─────────────────────────────────────────
+function runBoot(){
+  return new Promise(resolve=>{
+    const bs=document.createElement('div'); bs.id='boot-screen';
+    bs.innerHTML=`
+      <div id="boot-inner">
+        <div class="boot-logo">PERSONA/OS</div>
+        <div class="boot-badge">Academic Research Station &nbsp;·&nbsp; v1.0.0 &nbsp;·&nbsp; internetpersona.net</div>
+        <hr class="boot-sep">
+        <div id="boot-lines"></div>
+        <hr class="boot-sep" id="boot-sep2" style="display:none">
+        <div class="boot-ready" id="boot-ready">
+          SYSTEM READY &nbsp;<span class="boot-cursor-blink">█</span>
+        </div>
+      </div>`;
+    document.body.appendChild(bs);
+
+    const LINES=[
+      {label:'[ BIOS    ]', text:'Initializing hardware interface',    ok:'[ OK ]', delay:0},
+      {label:'[ MEMORY  ]', text:'Running 640K diagnostic sweep',       ok:'[ OK ]', delay:140},
+      {label:'[ DISPLAY ]', text:'Calibrating CRT phosphor matrix',     ok:'[ OK ]', delay:120},
+      {label:'[ STORAGE ]', text:'Mounting paper archive to /dev/mind', ok:'[ OK ]', delay:160},
+      {label:'[ PROFILE ]', text:'Loading researcher credentials',      ok:'[ OK ]', delay:130},
+      {label:'[ KERNEL  ]', text:'Spawning window manager process',     ok:'[ OK ]', delay:150},
+      {label:'[ THEME   ]', text:'Applying visual configuration',       ok:'[ OK ]', delay:110},
+    ];
+
+    const container=document.getElementById('boot-lines');
+    let i=0;
+
+    // play a tiny boot beep
+    function beep(freq,dur,vol=0.06){
+      try{
+        const c=new AudioContext(),o=c.createOscillator(),g=c.createGain();
+        o.connect(g);g.connect(c.destination);o.type='square';
+        o.frequency.value=freq;g.gain.setValueAtTime(vol,c.currentTime);
+        g.gain.linearRampToValueAtTime(0,c.currentTime+dur);
+        o.start();o.stop(c.currentTime+dur);
+      }catch(e){}
+    }
+
+    function showNextLine(){
+      if(i>=LINES.length){
+        document.getElementById('boot-sep2').style.display='';
+        document.getElementById('boot-ready').style.display='block';
+        beep(880,.12,.08);
+        setTimeout(()=>{
+          bs.classList.add('crt-off');
+          beep(200,.35,.05);
+          setTimeout(()=>{ bs.remove(); resolve(); },460);
+        },520);
+        return;
+      }
+      const {label,text,ok,delay}=LINES[i];
+      const row=document.createElement('div'); row.className='boot-line';
+      const dots='·'.repeat(55);
+      row.innerHTML=`<span class="boot-label">${label}</span><span class="boot-dots">${dots}</span><span class="boot-ok" id="bok${i}">${ok}</span>`;
+      container.appendChild(row);
+      beep(440+i*30,.04,.04);
+      setTimeout(()=>{
+        document.getElementById('bok'+i)?.classList.add('show');
+        i++;
+        const next=LINES[i]?.delay??0;
+        setTimeout(showNextLine, next);
+      },100);
+    }
+
+    setTimeout(showNextLine, 280);
+  });
+}
+
 (async()=>{
   updateAdminBadge();
-  await bootData();
-  applyPrefs(); // apply saved theme/scanlines after data loaded
+  // Run boot animation and data fetch in parallel; wait for both
+  await Promise.all([
+    runBoot(),
+    bootData()
+  ]);
+  applyPrefs();
   setTimeout(()=>openReviews(),200);
   if(!_lsOk) setTimeout(()=>toast('⚠ Storage disabled — changes won\'t persist'),1200);
   if(!remoteSnapshot) setTimeout(()=>toast('ℹ data.json not found — showing defaults'),1600);
