@@ -516,6 +516,49 @@ body.scanlines-off::after { display: none !important; }
   .window, .star.pop, #toast { animation: none !important; transition: none !important; }
 }
 
+/* ── SCREENSAVER ── */
+#screensaver {
+  position: fixed; inset: 0; z-index: 99997;
+  background: #000; cursor: none;
+}
+#screensaver-text {
+  position: absolute;
+  font-family: 'VT323', monospace;
+  font-size: 28px;
+  color: #00ff41;
+  text-shadow: 0 0 10px #00ff41, 0 0 24px #00ff4155;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* ── TERMINAL ── */
+#terminal-output {
+  font-family: 'Courier Prime', monospace;
+  font-size: 13px;
+  color: #00ff41;
+  background: #000;
+  padding: 10px 12px;
+  height: calc(100% - 44px);
+  overflow-y: auto;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+#terminal-output .t-err { color: #ff4444; }
+#terminal-output .t-ok  { color: #44ff88; }
+#terminal-output .t-dim { color: #448844; }
+#terminal-input-row {
+  display: flex; align-items: center;
+  background: #000; border-top: 1px solid #003300;
+  padding: 6px 10px; gap: 6px; flex-shrink: 0;
+}
+#terminal-input-row span { color: #00ff41; font-family:'Courier Prime',monospace; font-size:13px; }
+#terminal-input {
+  flex:1; background:transparent; border:none; outline:none;
+  color:#00ff41; font-family:'Courier Prime',monospace; font-size:13px;
+  caret-color:#00ff41;
+}
+
 </style>
 </head>
 <body>
@@ -895,9 +938,19 @@ function makeDraggable(win, handle) {
 }
 function makeResizable(win) {
   const h=win.querySelector('.resize-handle'); if(!h)return;
-  let r=false,sx,sy,sw,sh;
-  h.addEventListener('mousedown',e=>{r=true;sx=e.clientX;sy=e.clientY;sw=win.offsetWidth;sh=win.offsetHeight;e.preventDefault();e.stopPropagation();});
-  document.addEventListener('mousemove',e=>{if(!r)return;win.style.width=Math.max(300,sw+e.clientX-sx)+'px';win.style.height=Math.max(160,sh+e.clientY-sy)+'px';});
+  let r=false,sx,sy,sw,sh,squishToasted=false;
+  h.addEventListener('mousedown',e=>{r=true;sx=e.clientX;sy=e.clientY;sw=win.offsetWidth;sh=win.offsetHeight;squishToasted=false;e.preventDefault();e.stopPropagation();});
+  document.addEventListener('mousemove',e=>{
+    if(!r)return;
+    const nw=sw+e.clientX-sx, nh=sh+e.clientY-sy;
+    if((nw<260||nh<130)&&!squishToasted){
+      squishToasted=true;
+      const msgs=['sıkıştım!','çok küçüğüm!','biraz daha büyüt beni','nefes alamıyorum 😵'];
+      toast(msgs[Math.floor(Math.random()*msgs.length)]);
+    }
+    win.style.width=Math.max(300,nw)+'px';
+    win.style.height=Math.max(160,nh)+'px';
+  });
   document.addEventListener('mouseup',()=>{ if(r){ r=false; } });
 }
 const WIN_SCALE = {small:0.72, medium:1.0, large:1.38};
@@ -930,7 +983,16 @@ function addTaskbarBtn(id,label){const bar=document.getElementById('taskbar-item
 function removeTaskbarBtn(id){document.querySelector(`.taskbar-btn[data-win-id="${id}"]`)?.remove();}
 function updateTaskbarBtn(id,min){const b=document.querySelector(`.taskbar-btn[data-win-id="${id}"]`);if(b)b.classList.toggle('active',!min);}
 
-function tick(){const n=new Date();document.getElementById('clock').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');}
+let _lastClockStr='';
+function tick(){
+  const n=new Date();
+  const s=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+  document.getElementById('clock').textContent=s;
+  if(s==='00:00'&&_lastClockStr!=='00:00'){
+    setTimeout(()=>toast('🌙 gece yarısı oldu. hâlâ paper mı okuyorsun?'),400);
+  }
+  _lastClockStr=s;
+}
 tick();setInterval(tick,10000);
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
 
@@ -1378,6 +1440,140 @@ function renderPrefsBody(){
   setTimeout(()=>openReviews(),200);
   if(!_lsOk) setTimeout(()=>toast('⚠ Storage disabled — changes won\'t persist'),1200);
   if(!remoteSnapshot) setTimeout(()=>toast('ℹ data.json not found — showing defaults'),1600);
+})();
+
+// ── SCREENSAVER ───────────────────────────────────────────
+(()=>{
+  const IDLE_MS = 2 * 60 * 1000; // 2 dakika
+  let idleTimer, ssEl=null;
+
+  function resetIdle(){
+    clearTimeout(idleTimer);
+    if(ssEl) dismissSS();
+    idleTimer = setTimeout(startSS, IDLE_MS);
+  }
+
+  function startSS(){
+    if(ssEl) return;
+    ssEl = document.createElement('div'); ssEl.id='screensaver';
+    const txt = document.createElement('div'); txt.id='screensaver-text';
+    txt.textContent = 'personaOS';
+    ssEl.appendChild(txt);
+    document.body.appendChild(ssEl);
+
+    let x=Math.random()*(window.innerWidth-160);
+    let y=Math.random()*(window.innerHeight-40);
+    let vx=(Math.random()<0.5?1:-1)*(1.4+Math.random());
+    let vy=(Math.random()<0.5?1:-1)*(1.2+Math.random());
+    const COLORS=['#00ff41','#ff44ff','#44ffff','#ffaa00','#ff4444','#4488ff'];
+    let ci=0;
+
+    const raf=()=>{
+      if(!ssEl){return;}
+      x+=vx; y+=vy;
+      const W=window.innerWidth, H=window.innerHeight;
+      const tw=txt.offsetWidth||140, th=txt.offsetHeight||36;
+      if(x<=0||x+tw>=W){ vx*=-1; x=Math.max(0,Math.min(W-tw,x)); ci=(ci+1)%COLORS.length; txt.style.color=COLORS[ci]; txt.style.textShadow=`0 0 10px ${COLORS[ci]}`; }
+      if(y<=0||y+th>=H){ vy*=-1; y=Math.max(0,Math.min(H-th,y)); ci=(ci+1)%COLORS.length; txt.style.color=COLORS[ci]; txt.style.textShadow=`0 0 10px ${COLORS[ci]}`; }
+      txt.style.left=x+'px'; txt.style.top=y+'px';
+      requestAnimationFrame(raf);
+    };
+    requestAnimationFrame(raf);
+    ssEl.addEventListener('click', dismissSS);
+  }
+
+  function dismissSS(){
+    if(!ssEl) return;
+    ssEl.remove(); ssEl=null;
+    resetIdle();
+  }
+
+  ['mousemove','mousedown','keydown','touchstart','scroll'].forEach(ev=>
+    document.addEventListener(ev, resetIdle, {passive:true})
+  );
+  resetIdle();
+})();
+
+// ── GİZLİ TERMİNAL (` tuşu) ──────────────────────────────
+(()=>{
+  const CMDS = {
+    help: ()=>`<span class="t-ok">PERSONA/OS Terminal v1.0</span>
+<span class="t-dim">─────────────────────────────</span>
+  help          bu listeyi göster
+  ls            paper listesi
+  whoami        sen kimsin
+  pwd           neredesin
+  date          tarih ve saat
+  cat readme    bu OS hakkında
+  sudo          dene bakalım
+  rm -rf thesis denemedim bile
+  coffee        ☕
+  clear         ekranı temizle`,
+
+    ls: ()=>{
+      if(!papers||!papers.length) return '<span class="t-dim">[ paper bulunamadı ]</span>';
+      return papers.map((p,i)=>`<span class="t-dim">${String(i+1).padStart(2,'0')}</span>  ${p.title} <span class="t-dim">(${p.year})</span>`).join('\n');
+    },
+
+    whoami: ()=>`<span class="t-ok">${cv?.name||'unknown'}</span> — ${cv?.role||'researcher'}`,
+    pwd:    ()=>'/home/personaos/papers',
+    date:   ()=>new Date().toLocaleString('tr-TR'),
+    coffee: ()=>`<span class="t-ok">☕ hazırlanıyor</span>\n<span class="t-dim">...........\nbitti. beğendin mi?</span>`,
+    clear:  ()=>'__CLEAR__',
+    'cat readme': ()=>`personaOS — retro masaüstü paper kütüphanesi
+yazan: sen
+sürüm: 1.0.0
+lisans: pek öyle bir şey yok`,
+    'sudo make coffee': ()=>`[sudo] şifre: ****\n<span class="t-err">ERROR: coffee pot not found in /dev</span>`,
+    'sudo rm -rf /': ()=>`<span class="t-err">yavaş ol dostum.</span>`,
+    'rm -rf thesis': ()=>`<span class="t-err">rm: cannot remove 'thesis': Too much pain attached</span>`,
+    sudo: ()=>`<span class="t-err">bu bir terminal easter egg'i, sudo gerçek değil 😌</span>`,
+    exit: ()=>'__EXIT__',
+    quit: ()=>'__EXIT__',
+  };
+
+  function runCmd(raw, outEl){
+    const cmd = raw.trim().toLowerCase();
+    if(!cmd) return;
+    // echo input
+    outEl.innerHTML += `\n<span class="t-dim">❯</span> ${raw}\n`;
+    const fn = CMDS[cmd] || (()=>`<span class="t-err">komut bulunamadı: ${raw}\nyardım için 'help' yaz</span>`);
+    const result = fn();
+    if(result==='__CLEAR__'){ outEl.innerHTML=''; return; }
+    if(result==='__EXIT__'){ closeWindow('terminal'); return; }
+    outEl.innerHTML += result + '\n';
+    outEl.scrollTop = outEl.scrollHeight;
+  }
+
+  function openTerminal(){
+    createWindow({id:'terminal', title:'Terminal', icon:'🖥', width:520, height:360,
+      statusText:'backtick (`) ile aç/kapat · exit ile çık',
+      buildBody: inner=>{
+        inner.style.display='flex'; inner.style.flexDirection='column';
+        inner.style.background='#000'; inner.style.height='100%';
+        const out = document.createElement('div'); out.id='terminal-output';
+        out.innerHTML=`<span class="t-ok">PERSONA/OS Terminal</span> — <span class="t-dim">yardım için 'help' yaz</span>\n`;
+        const row = document.createElement('div'); row.id='terminal-input-row';
+        row.innerHTML=`<span>❯</span><input id="terminal-input" autocomplete="off" spellcheck="false" autofocus placeholder="komut gir...">`;
+        inner.appendChild(out); inner.appendChild(row);
+        const inp = row.querySelector('#terminal-input');
+        inp.addEventListener('keydown', e=>{
+          if(e.key==='Enter'){ runCmd(inp.value, out); inp.value=''; e.preventDefault(); }
+        });
+        setTimeout(()=>inp.focus(), 80);
+      }
+    });
+  }
+
+  document.addEventListener('keydown', e=>{
+    if(e.key==='`'&&!e.ctrlKey&&!e.metaKey){
+      const focused = document.activeElement;
+      if(focused&&(focused.tagName==='INPUT'||focused.tagName==='TEXTAREA')) return;
+      e.preventDefault();
+      if(openWindows['terminal']) closeWindow('terminal');
+      else openTerminal();
+    }
+  });
 })();
 </script>
 </body>
