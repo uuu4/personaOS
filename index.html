@@ -516,88 +516,21 @@ body.scanlines-off::after { display: none !important; }
   .window, .star.pop, #toast { animation: none !important; transition: none !important; }
 }
 
-/* ── BOOT SCREEN ── */
-#boot-screen {
+/* ── BOOT SCREEN (canvas — all drawing done in JS) ── */
+#boot-canvas {
   position: fixed; inset: 0; z-index: 999999;
-  background: #000;
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Courier Prime', monospace;
-  color: #00ff41;
-  overflow: hidden;
+  display: block; cursor: none;
+  image-rendering: pixelated; image-rendering: crisp-edges;
 }
-#boot-screen::before {
-  content: '';
-  position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background: repeating-linear-gradient(
-    to bottom, transparent 0px, transparent 3px, rgba(0,255,65,0.04) 3px, rgba(0,255,65,0.04) 4px
-  );
-}
-#boot-screen::after {
-  content: '';
-  position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background: radial-gradient(ellipse 75% 75% at 50% 50%, transparent 40%, rgba(0,0,0,0.85) 100%);
-}
-#boot-inner {
-  position: relative; z-index: 1;
-  width: min(660px, 88vw);
-}
-.boot-logo {
-  font-family: 'VT323', monospace;
-  font-size: clamp(36px, 6vw, 56px);
-  letter-spacing: 8px;
-  color: #00ff41;
-  text-shadow: 0 0 12px #00ff41, 0 0 30px #00ff4166, 0 0 60px #00ff4133;
-  margin-bottom: 2px;
-  line-height: 1;
-}
-.boot-badge {
-  font-size: 12px; letter-spacing: 3px;
-  color: #008820; margin-bottom: 20px;
-  text-transform: uppercase;
-}
-.boot-sep {
-  height: 1px; background: #003300;
-  margin: 12px 0; border: none;
-}
-.boot-line {
-  display: grid;
-  grid-template-columns: 120px 1fr auto;
-  gap: 6px;
-  font-size: 13px; line-height: 1.9;
-  align-items: center;
-}
-.boot-label { color: #ffaa00; letter-spacing: 1px; }
-.boot-dots  { color: #002800; font-size: 11px; overflow: hidden; white-space: nowrap; }
-.boot-ok    { color: #ffffff; font-weight: bold; white-space: nowrap; opacity: 0; transition: opacity .08s; }
-.boot-ok.show { opacity: 1; }
-.boot-ready {
-  margin-top: 18px;
-  font-size: 18px; letter-spacing: 3px;
-  color: #00ff41;
-  text-shadow: 0 0 8px #00ff41;
-  font-family: 'VT323', monospace;
-  display: none;
-}
-.boot-cursor-blink {
-  display: inline-block;
-  animation: bootBlink .6s step-end infinite;
-}
-@keyframes bootBlink { 0%,100%{opacity:1} 50%{opacity:0} }
-@keyframes bootFlicker {
-  0%,89%,91%,93%,100% { opacity: 1; }
-  90% { opacity: .7; }
-  92% { opacity: .85; }
-}
-#boot-screen { animation: bootFlicker 5s infinite; }
 @keyframes crtOff {
-  0%   { transform: scaleY(1);    filter: brightness(1)  blur(0px);  opacity: 1; }
-  25%  { transform: scaleY(1);    filter: brightness(5)  blur(0px);  opacity: 1; }
-  50%  { transform: scaleY(.015); filter: brightness(10) blur(3px);  opacity: 1; }
-  75%  { transform: scaleY(.015); filter: brightness(0)  blur(0px);  opacity: 1; }
-  100% { transform: scaleY(.015); filter: brightness(0);              opacity: 0; }
+  0%   { transform: scaleY(1);    filter: brightness(1)  blur(0px); opacity:1; }
+  25%  { transform: scaleY(1);    filter: brightness(6)  blur(0px); opacity:1; }
+  55%  { transform: scaleY(.012); filter: brightness(12) blur(4px); opacity:1; }
+  80%  { transform: scaleY(.012); filter: brightness(0)  blur(0px); opacity:1; }
+  100% { transform: scaleY(.012); filter: brightness(0);             opacity:0; }
 }
-#boot-screen.crt-off {
-  animation: crtOff .45s ease-in forwards;
+#boot-canvas.crt-off {
+  animation: crtOff .5s ease-in forwards;
   transform-origin: 50% 50%;
 }
 </style>
@@ -1455,74 +1388,286 @@ function renderPrefsBody(){
     </div>`;
 }
 
-// ── BOOT SEQUENCE ─────────────────────────────────────────
+// ── BOOT SEQUENCE — pixel art canvas animation ─────────────
 function runBoot(){
   return new Promise(resolve=>{
-    const bs=document.createElement('div'); bs.id='boot-screen';
-    bs.innerHTML=`
-      <div id="boot-inner">
-        <div class="boot-logo">PERSONA/OS</div>
-        <div class="boot-badge">Academic Research Station &nbsp;·&nbsp; v1.0.0 &nbsp;·&nbsp; internetpersona.net</div>
-        <hr class="boot-sep">
-        <div id="boot-lines"></div>
-        <hr class="boot-sep" id="boot-sep2" style="display:none">
-        <div class="boot-ready" id="boot-ready">
-          SYSTEM READY &nbsp;<span class="boot-cursor-blink">█</span>
-        </div>
-      </div>`;
-    document.body.appendChild(bs);
+    const W=window.innerWidth, H=window.innerHeight;
+    const PX=Math.max(3,Math.min(5,Math.floor(W/220)));  // pixel block size
 
-    const LINES=[
-      {label:'[ BIOS    ]', text:'Initializing hardware interface',    ok:'[ OK ]', delay:0},
-      {label:'[ MEMORY  ]', text:'Running 640K diagnostic sweep',       ok:'[ OK ]', delay:140},
-      {label:'[ DISPLAY ]', text:'Calibrating CRT phosphor matrix',     ok:'[ OK ]', delay:120},
-      {label:'[ STORAGE ]', text:'Mounting paper archive to /dev/mind', ok:'[ OK ]', delay:160},
-      {label:'[ PROFILE ]', text:'Loading researcher credentials',      ok:'[ OK ]', delay:130},
-      {label:'[ KERNEL  ]', text:'Spawning window manager process',     ok:'[ OK ]', delay:150},
-      {label:'[ THEME   ]', text:'Applying visual configuration',       ok:'[ OK ]', delay:110},
-    ];
+    const cv=document.createElement('canvas');
+    cv.id='boot-canvas'; cv.width=W; cv.height=H;
+    document.body.appendChild(cv);
+    const ctx=cv.getContext('2d');
+    ctx.imageSmoothingEnabled=false;
 
-    const container=document.getElementById('boot-lines');
-    let i=0;
-
-    // play a tiny boot beep
-    function beep(freq,dur,vol=0.06){
-      try{
-        const c=new AudioContext(),o=c.createOscillator(),g=c.createGain();
-        o.connect(g);g.connect(c.destination);o.type='square';
-        o.frequency.value=freq;g.gain.setValueAtTime(vol,c.currentTime);
-        g.gain.linearRampToValueAtTime(0,c.currentTime+dur);
-        o.start();o.stop(c.currentTime+dur);
-      }catch(e){}
+    // ── Pixel-art beep ───────────────────────────────────
+    function beep(freq,dur,vol=0.07,type='square'){
+      try{const ac=new AudioContext(),o=ac.createOscillator(),g=ac.createGain();
+        o.connect(g);g.connect(ac.destination);o.type=type;o.frequency.value=freq;
+        g.gain.setValueAtTime(vol,ac.currentTime);
+        g.gain.linearRampToValueAtTime(0,ac.currentTime+dur);
+        o.start();o.stop(ac.currentTime+dur);}catch(e){}
     }
 
-    function showNextLine(){
-      if(i>=LINES.length){
-        document.getElementById('boot-sep2').style.display='';
-        document.getElementById('boot-ready').style.display='block';
-        beep(880,.12,.08);
-        setTimeout(()=>{
-          bs.classList.add('crt-off');
-          beep(200,.35,.05);
-          setTimeout(()=>{ bs.remove(); resolve(); },460);
-        },520);
-        return;
+    // ── Sprite helper ────────────────────────────────────
+    // Each cell is a hex color string or '' for transparent
+    const SK='#e8b87a', DK='#1a0a00', BL='#3355cc', PN='#223344',
+          SH='#111', WH='#ffffff', GR='#888888', YL='#ffdd00',
+          RD='#cc2200', GN='#00cc44';
+
+    // 10×16 researcher character — idle / walk-A / walk-B / wave
+    const CHAR={
+      idle:[
+        [0, 0,DK,DK,DK,DK, 0, 0, 0, 0],
+        [0,DK,DK,DK,DK,DK,DK, 0, 0, 0],
+        [0,SK,SK,SK,SK,SK,SK, 0, 0, 0],
+        [0,SK,WH, 0,WH,SK,SK, 0, 0, 0],
+        [0,SK,SK,SK,SK,SK,SK, 0, 0, 0],
+        [0,SK,SK,RD,SK,SK,SK, 0, 0, 0],
+        [0, 0,SK,SK,SK,SK, 0, 0, 0, 0],
+        [BL,BL,BL,BL,BL,BL,BL,BL, 0, 0],
+        [BL,BL,BL,BL,BL,BL,BL,BL, 0, 0],
+        [0,BL,BL, 0, 0,BL,BL, 0, 0, 0],
+        [0,PN,PN, 0, 0,PN,PN, 0, 0, 0],
+        [0,PN,PN, 0, 0,PN,PN, 0, 0, 0],
+        [0,PN,PN, 0, 0,PN,PN, 0, 0, 0],
+        [0,PN,PN, 0, 0,PN,PN, 0, 0, 0],
+        [SH,SH,SH,0, 0,SH,SH,SH,0, 0],
+        [SH,SH,SH,0, 0,SH,SH,SH,0, 0],
+      ],
+      walkA:[
+        [0, 0,DK,DK,DK,DK, 0, 0, 0, 0],
+        [0,DK,DK,DK,DK,DK,DK, 0, 0, 0],
+        [0,SK,SK,SK,SK,SK,SK, 0, 0, 0],
+        [0,SK,WH, 0,WH,SK,SK, 0, 0, 0],
+        [0,SK,SK,SK,SK,SK,SK, 0, 0, 0],
+        [0,SK,SK,RD,SK,SK,SK, 0, 0, 0],
+        [0, 0,SK,SK,SK,SK, 0, 0, 0, 0],
+        [BL,BL,BL,BL,BL,BL,BL,BL, 0, 0],
+        [BL,BL,BL,BL,BL,BL,BL,BL, 0, 0],
+        [0,BL,BL, 0, 0,BL,BL, 0, 0, 0],
+        [0,PN,PN, 0, 0, 0,PN, 0, 0, 0],
+        [0, 0,PN, 0, 0, 0,PN, 0, 0, 0],
+        [0, 0,PN, 0, 0,PN, 0, 0, 0, 0],
+        [0, 0,PN, 0, 0,PN, 0, 0, 0, 0],
+        [0,SH,SH, 0,SH,SH, 0, 0, 0, 0],
+        [0,SH,SH, 0,SH,SH, 0, 0, 0, 0],
+      ],
+      walkB:[
+        [0, 0,DK,DK,DK,DK, 0, 0, 0, 0],
+        [0,DK,DK,DK,DK,DK,DK, 0, 0, 0],
+        [0,SK,SK,SK,SK,SK,SK, 0, 0, 0],
+        [0,SK,WH, 0,WH,SK,SK, 0, 0, 0],
+        [0,SK,SK,SK,SK,SK,SK, 0, 0, 0],
+        [0,SK,SK,RD,SK,SK,SK, 0, 0, 0],
+        [0, 0,SK,SK,SK,SK, 0, 0, 0, 0],
+        [BL,BL,BL,BL,BL,BL,BL,BL, 0, 0],
+        [BL,BL,BL,BL,BL,BL,BL,BL, 0, 0],
+        [0,BL,BL, 0, 0,BL,BL, 0, 0, 0],
+        [0,PN, 0, 0, 0,PN,PN, 0, 0, 0],
+        [0,PN, 0, 0, 0,PN, 0, 0, 0, 0],
+        [0,PN, 0, 0, 0,PN, 0, 0, 0, 0],
+        [0,PN,PN, 0, 0,PN, 0, 0, 0, 0],
+        [0,SH,SH, 0, 0,SH,SH, 0, 0, 0],
+        [0,SH,SH, 0, 0,SH,SH, 0, 0, 0],
+      ],
+      wave:[
+        [0, 0,DK,DK,DK,DK, 0, 0, 0, 0],
+        [0,DK,DK,DK,DK,DK,DK, 0, 0, 0],
+        [0,SK,SK,SK,SK,SK,SK, 0, 0, 0],
+        [0,SK,WH, 0,WH,SK,SK, 0, 0, 0],
+        [0,SK,SK,SK,SK,SK,SK, 0, 0, 0],
+        [0,SK,SK,GN,SK,SK,SK, 0, 0, 0],  // smile green!
+        [0, 0,SK,SK,SK,SK, 0, 0, 0, 0],
+        [BL,BL,BL,BL,BL,BL,BL,BL,BL, 0],
+        [BL,BL,BL,BL,BL,BL,BL,SK,SK,SK], // arm raised
+        [0,BL,BL, 0, 0,BL,BL,SK, 0, 0],  // hand
+        [0,PN,PN, 0, 0,PN,PN, 0, 0, 0],
+        [0,PN,PN, 0, 0,PN,PN, 0, 0, 0],
+        [0,PN,PN, 0, 0,PN,PN, 0, 0, 0],
+        [0,PN,PN, 0, 0,PN,PN, 0, 0, 0],
+        [SH,SH,SH,0, 0,SH,SH,SH,0, 0],
+        [SH,SH,SH,0, 0,SH,SH,SH,0, 0],
+      ],
+    };
+
+    function drawSprite(grid,sx,sy,px){
+      grid.forEach((row,ry)=>row.forEach((col,rx)=>{
+        if(!col) return;
+        ctx.fillStyle=col;
+        ctx.fillRect(Math.round(sx+rx*px),Math.round(sy+ry*px),px,px);
+      }));
+    }
+
+    // ── Pixelated text via offscreen canvas ──────────────
+    function pxText(text,cx,cy,fsz,color,scale){
+      const ofc=document.createElement('canvas');
+      const oc=ofc.getContext('2d');
+      oc.font=`bold ${fsz}px "VT323",monospace`;
+      const tw=Math.ceil(oc.measureText(text).width)+4;
+      ofc.width=tw; ofc.height=fsz+8;
+      oc.font=`bold ${fsz}px "VT323",monospace`;
+      oc.fillStyle=color; oc.fillText(text,2,fsz);
+      ctx.imageSmoothingEnabled=false;
+      ctx.drawImage(ofc, Math.round(cx-tw*scale/2), Math.round(cy), tw*scale, (fsz+8)*scale);
+    }
+
+    // ── Stars ────────────────────────────────────────────
+    const STARS=Array.from({length:90},()=>({
+      x:Math.floor(Math.random()*(W/PX))*PX,
+      y:Math.floor(Math.random()*(H/PX))*PX,
+      c:['#fff','#aaf','#ffa','#afa'][Math.floor(Math.random()*4)],
+      ph:Math.random()*Math.PI*2, sp:0.025+Math.random()*0.05,
+    }));
+
+    // ── Progress messages ────────────────────────────────
+    const MSGS=['LOADING PAPERS...','MOUNTING PROFILE...','STARTING KERNEL...','APPLYING THEME...','SYSTEM READY ✓'];
+
+    // ── Animation state ──────────────────────────────────
+    let frame=0, raf;
+    const t0=performance.now();
+    const SPR_W=10, SPR_H=16;
+    const CSCALE=PX*2;  // character pixel size
+    let charX=-SPR_W*CSCALE;
+    const charTargetX=W*0.5-SPR_W*CSCALE*0.5;
+    const charY=H*0.54;
+    let walking=true, waveMode=false;
+
+    function getPhase(ms){
+      if(ms<300)  return 0;   // stars only
+      if(ms<900)  return 1;   // logo fades in
+      if(ms<1700) return 2;   // char walks + progress
+      if(ms<2300) return 3;   // wave + READY
+      return 4;               // exit
+    }
+
+    function tick(now){
+      const ms=now-t0;
+      const phase=getPhase(ms);
+      frame++;
+
+      // ── Update character position ──
+      if(phase>=1 && walking){
+        const speed=Math.max(3,(charTargetX-(-SPR_W*CSCALE))/(60*0.8));
+        charX=Math.min(charTargetX,charX+speed);
+        if(charX>=charTargetX){ walking=false; }
       }
-      const {label,text,ok,delay}=LINES[i];
-      const row=document.createElement('div'); row.className='boot-line';
-      const dots='·'.repeat(55);
-      row.innerHTML=`<span class="boot-label">${label}</span><span class="boot-dots">${dots}</span><span class="boot-ok" id="bok${i}">${ok}</span>`;
-      container.appendChild(row);
-      beep(440+i*30,.04,.04);
-      setTimeout(()=>{
-        document.getElementById('bok'+i)?.classList.add('show');
-        i++;
-        const next=LINES[i]?.delay??0;
-        setTimeout(showNextLine, next);
-      },100);
+      if(phase>=3) waveMode=true;
+
+      // ── DRAW ─────────────────────────────────────────
+      // Background
+      ctx.fillStyle='#05020a'; ctx.fillRect(0,0,W,H);
+
+      // Stars
+      STARS.forEach(s=>{
+        const b=0.4+0.6*(0.5+0.5*Math.sin(s.ph+frame*s.sp));
+        ctx.globalAlpha=b; ctx.fillStyle=s.c;
+        ctx.fillRect(s.x,s.y,PX,PX);
+      });
+      ctx.globalAlpha=1;
+
+      // Ground line (pixel grid)
+      if(phase>=1){
+        ctx.fillStyle='#1a0a30';
+        for(let x=0;x<W;x+=PX*2) ctx.fillRect(x,charY+SPR_H*CSCALE+PX,PX,PX);
+      }
+
+      // Logo
+      if(phase>=1){
+        const logoAlpha=Math.min(1,(ms-300)/300);
+        ctx.globalAlpha=logoAlpha;
+        // Glow behind text
+        const grd=ctx.createRadialGradient(W/2,H*0.22,0,W/2,H*0.22,W*0.28);
+        grd.addColorStop(0,'rgba(0,255,65,0.12)');
+        grd.addColorStop(1,'transparent');
+        ctx.fillStyle=grd; ctx.fillRect(0,0,W,H*0.5);
+        ctx.globalAlpha=logoAlpha;
+        pxText('PERSONA / OS',W/2,H*0.08,52,'#00ff41',PX*0.85);
+        ctx.globalAlpha=logoAlpha*0.55;
+        pxText('ACADEMIC RESEARCH STATION',W/2,H*0.08+52*PX*0.85+6,14,'#33aa55',PX*0.72);
+        ctx.globalAlpha=1;
+      }
+
+      // Character
+      if(phase>=1){
+        const walkFrame=Math.floor(frame/7)%2;
+        let spr=waveMode?CHAR.wave:(walking?(walkFrame?CHAR.walkA:CHAR.walkB):CHAR.idle);
+        drawSprite(spr,charX,charY,CSCALE);
+        // Shadow
+        ctx.globalAlpha=0.18;
+        ctx.fillStyle='#000';
+        for(let i=0;i<SPR_W;i++) ctx.fillRect(charX+i*CSCALE+CSCALE*0.5,charY+SPR_H*CSCALE+PX,CSCALE,PX);
+        ctx.globalAlpha=1;
+      }
+
+      // Progress bar + messages
+      if(phase>=2){
+        const prog=Math.min(1,(ms-900)/800);
+        const msgI=Math.min(MSGS.length-1,Math.floor(prog*(MSGS.length-1)));
+        const bW=Math.min(420,W*0.55), bH=PX*3;
+        const bX=(W-bW)/2, bY=charY+SPR_H*CSCALE+PX*7;
+
+        // Bar bg
+        ctx.fillStyle='#0a0018'; ctx.fillRect(bX,bY,bW,bH);
+        ctx.fillStyle='#220044';
+        ctx.fillRect(bX,bY,bW,PX); ctx.fillRect(bX,bY+bH-PX,bW,PX);
+        ctx.fillRect(bX,bY,PX,bH); ctx.fillRect(bX+bW-PX,bY,PX,bH);
+        // Fill
+        const fillW=Math.round((bW-PX*2)*prog);
+        const gbar=ctx.createLinearGradient(bX,0,bX+bW,0);
+        gbar.addColorStop(0,'#aa00ff'); gbar.addColorStop(0.5,'#ff44ff'); gbar.addColorStop(1,'#00ffcc');
+        ctx.fillStyle=gbar;
+        ctx.fillRect(bX+PX,bY+PX,fillW,bH-PX*2);
+
+        // Message above bar
+        ctx.fillStyle= phase>=3?'#00ffcc':'#cc88ff';
+        ctx.font=`${PX*5}px "VT323",monospace`;
+        ctx.textAlign='center';
+        ctx.fillText(MSGS[msgI],W/2,bY-PX*2);
+
+        // % counter
+        ctx.fillStyle='#884488';
+        ctx.font=`${PX*3}px "VT323",monospace`;
+        ctx.fillText(Math.round(prog*100)+'%',W/2,bY+bH+PX*4);
+        ctx.textAlign='left';
+      }
+
+      // READY flash
+      if(phase>=3){
+        const blink=Math.floor(frame/18)%2===0;
+        if(blink){
+          ctx.fillStyle='#00ffcc';
+          ctx.font=`${PX*7}px "VT323",monospace`;
+          ctx.textAlign='center';
+          ctx.shadowColor='#00ffcc'; ctx.shadowBlur=PX*4;
+          ctx.fillText('[ SYSTEM READY ]',W/2,H*0.91);
+          ctx.shadowBlur=0; ctx.textAlign='left';
+        }
+      }
+
+      // Scanlines overlay
+      ctx.fillStyle='rgba(0,0,0,0.13)';
+      for(let y=0;y<H;y+=PX) ctx.fillRect(0,y+PX-1,W,1);
+
+      // Vignette
+      const vig=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.hypot(W,H)*0.58);
+      vig.addColorStop(0.35,'transparent'); vig.addColorStop(1,'rgba(0,0,0,0.82)');
+      ctx.fillStyle=vig; ctx.fillRect(0,0,W,H);
+
+      // ── Phase exit ───────────────────────────────────
+      if(phase<4){
+        raf=requestAnimationFrame(tick);
+      } else {
+        beep(220,.4,.06,'sine');
+        cv.classList.add('crt-off');
+        setTimeout(()=>{ cancelAnimationFrame(raf); cv.remove(); resolve(); },520);
+      }
     }
 
-    setTimeout(showNextLine, 280);
+    // Startup beep
+    setTimeout(()=>beep(660,.08,.05,'square'),300);
+    setTimeout(()=>beep(880,.08,.05,'square'),420);
+    requestAnimationFrame(tick);
   });
 }
 
