@@ -16,6 +16,22 @@
       "notes": "as a undergrad student (2026), i can clearly say that this was all i was looking for. \n\nApr 26 2026, i suddenly googled as \"how to read a paper\" an this was what I faced with.\n\nTo conclude, this paper suggests a three-pass approach to read articles for more efficient way.\n\npass one -> quickly skim the headings, abstraction and conclusion. approx. 10-15min\n\npass two -> read more deeply, but do not interfere with proofs if it is a technical paper;mark relevant unread references for further reading. pay attention to figures. approx. 1hr\n\npass three -> basically re-implement the paper. you need to think as author and brainstorm about the complex structures and criticize the limitations. approx. 4-5 hr",
       "icon": "📄",
       "pdfUrl": "https://web.stanford.edu/class/ee384m/Handouts/HowtoReadPaper.pdf"
+    },
+    {
+      "id": "p1777739067176",
+      "title": "Topological turning points across the human lifespan",
+      "authors": "A. Mousley et al.",
+      "year": 2025,
+      "venue": "Nature Communications",
+      "tags": [
+        "neuroscince",
+        "structural topology"
+      ],
+      "abstract": "Structural topology develops non-linearly across the lifespan and is strongly\nrelated to cognitive trajectories. We gathered diffusion imaging from datasets\nwith a collective age range of zero to 90 years old (N = 4,216). We analyzed how\n12 graph theory metrics of organization change with age and projected these\ndata into manifold spaces using Uniform Manifold Projection and Approx-\nimation. With these manifolds, we identified four major topological turning\npoints across the lifespan – around nine, 32, 66, and 83 years old. These ages\ndefined five major epochs of topological development, each with distinctive\nage-related changes in topology. These lifespan epochs each have a distinct\ndirection of topological development and specific changes in the organiza-\ntional properties driving the age-topology relationship. This study under-\nscores the complex, non-linear nature of human development, with unique\nphases of topological maturation, which can only be illuminated with a mul-\ntivariate, lifespan, population-level perspective.",
+      "rating": 0,
+      "notes": "\"With these manifolds, we identified four major topological turning points across the lifespan – around nine, 32, 66, and 83 years old\"\n\nthese 4 major topology changes tell us that our brain development persists in connecting new synapses until the age of 32. From 32 to 66, it reaches a plateau. i keep thinking about this article's philosophical perspective on aging. the study shows that the government classifies people under 18 as children, but this is not the case. between the ages of 9 and 32, an 18-year-old and a 28-year-old exhibit an approximately similar brain structure.\n\nto be honest, i am a little bit relieved. this is because, i do not feel \"smart\" or \"sharp-minded\" enough these days. \n\n",
+      "icon": "🧠",
+      "pdfUrl": "https://www.nature.com/articles/s41467-025-65974-8.pdf"
     }
   ],
   "cv": {
