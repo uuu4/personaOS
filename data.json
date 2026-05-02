@@ -18,17 +18,17 @@
       "pdfUrl": "https://web.stanford.edu/class/ee384m/Handouts/HowtoReadPaper.pdf"
     },
     {
-      "id": "p1777739067176",
-      "title": "Topological turning points across the human lifespan",
-      "authors": "A. Mousley et al.",
+      "id": "p1777751374243",
+      "title": "Topological turning points across the human lifespa",
+      "authors": "A. Mousley",
       "year": 2025,
       "venue": "Nature Communications",
       "tags": [
-        "neuroscince",
-        "structural topology"
+        "neuroscience",
+        "structured topology"
       ],
-      "abstract": "Structural topology develops non-linearly across the lifespan and is strongly\nrelated to cognitive trajectories. We gathered diffusion imaging from datasets\nwith a collective age range of zero to 90 years old (N = 4,216). We analyzed how\n12 graph theory metrics of organization change with age and projected these\ndata into manifold spaces using Uniform Manifold Projection and Approx-\nimation. With these manifolds, we identified four major topological turning\npoints across the lifespan – around nine, 32, 66, and 83 years old. These ages\ndefined five major epochs of topological development, each with distinctive\nage-related changes in topology. These lifespan epochs each have a distinct\ndirection of topological development and specific changes in the organiza-\ntional properties driving the age-topology relationship. This study under-\nscores the complex, non-linear nature of human development, with unique\nphases of topological maturation, which can only be illuminated with a mul-\ntivariate, lifespan, population-level perspective.",
-      "rating": 0,
+      "abstract": "Structural topology develops non-linearly across the lifespan and is strongly related to cognitive trajectories. We gathered diffusion imaging from datasets with a collective age range of zero to 90 years old (N = 4,216). We analyzed how 12 graph theory metrics of organization change with age and projected these data into manifold spaces using Uniform Manifold Projection and Approximation. With these manifolds, we identified four major topological turning points across the lifespan – around nine, 32, 66, and 83 years old. These ages defined five major epochs of topological development, each with distinctive age-related changes in topology. These lifespan epochs each have a distinct direction of topological development and specific changes in the organizational properties driving the age-topology relationship. This study underscores the complex, non-linear nature of human development, with unique phases of topological maturation, which can only be illuminated with a multivariate, lifespan, population-level perspective.",
+      "rating": 5,
       "notes": "\"With these manifolds, we identified four major topological turning points across the lifespan – around nine, 32, 66, and 83 years old\"\n\nthese 4 major topology changes tell us that our brain development persists in connecting new synapses until the age of 32. From 32 to 66, it reaches a plateau. i keep thinking about this article's philosophical perspective on aging. the study shows that the government classifies people under 18 as children, but this is not the case. between the ages of 9 and 32, an 18-year-old and a 28-year-old exhibit an approximately similar brain structure.\n\nto be honest, i am a little bit relieved. this is because, i do not feel \"smart\" or \"sharp-minded\" enough these days. \n\n",
       "icon": "🧠",
       "pdfUrl": "https://www.nature.com/articles/s41467-025-65974-8.pdf"
