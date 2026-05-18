@@ -32,6 +32,25 @@
       "notes": "\"With these manifolds, we identified four major topological turning points across the lifespan – around nine, 32, 66, and 83 years old\"\n\nthese 4 major topology changes tell us that our brain development persists in connecting new synapses until the age of 32. From 32 to 66, it reaches a plateau. i keep thinking about this article's philosophical perspective on aging. the study shows that the government classifies people under 18 as children, but this is not the case. between the ages of 9 and 32, an 18-year-old and a 28-year-old exhibit an approximately similar brain structure.\n\nto be honest, i am a little bit relieved. this is because, i do not feel \"smart\" or \"sharp-minded\" enough these days. \n\n",
       "icon": "🧠",
       "pdfUrl": "https://www.nature.com/articles/s41467-025-65974-8.pdf"
+    },
+    {
+      "id": "p1779093921540",
+      "title": "Variational quantum algorithms",
+      "authors": "M Cerezo",
+      "year": 2021,
+      "venue": "Nature Review Pyshics",
+      "tags": [
+        "quantum computing",
+        "vqa",
+        "deep learning",
+        "machine learning",
+        "quantum machine learning"
+      ],
+      "abstract": "VQAs have already been considered for a plethora of\napplications (see Figure 3), covering essentially all of the applications that researchers had envisioned for quantum computers. Although they may be the key to obtaining near-term quantum advantage, VQAs still face important challenges, including their trainability, accuracy,and efficiency.In this Review, we discuss the exciting prospects for VQAs, and we highlight the challenges that must be overcome to obtain the ultimate goal of quantum advantage.",
+      "rating": 0,
+      "notes": "this paper essentially reviews and consolidates a comprehensive collection of literature on variational quantum algorithms (vqas) into a single framework. the core architecture of a vqa consists of three key components: an ansatz, which is a parameterized quantum circuit used to represent trainable parameters; a cost function that maps quantum states to a high-dimensional landscape that needs to be optimized; and classical optimizers that use gradients to minimize this cost function. however, a critical challenge in training vqas is the phenomenon of barren plateaus, which occurs when gradients vanish and become exponentially close to zero, rendering the optimization landscape flat and making the circuit untrainable.",
+      "icon": "⚛️",
+      "pdfUrl": "https://arxiv.org/pdf/2012.09265"
     }
   ],
   "cv": {
