@@ -47,7 +47,7 @@
         "quantum machine learning"
       ],
       "abstract": "VQAs have already been considered for a plethora of\napplications (see Figure 3), covering essentially all of the applications that researchers had envisioned for quantum computers. Although they may be the key to obtaining near-term quantum advantage, VQAs still face important challenges, including their trainability, accuracy,and efficiency.In this Review, we discuss the exciting prospects for VQAs, and we highlight the challenges that must be overcome to obtain the ultimate goal of quantum advantage.",
-      "rating": 0,
+      "rating": 4,
       "notes": "this paper essentially reviews and consolidates a comprehensive collection of literature on variational quantum algorithms (vqas) into a single framework. the core architecture of a vqa consists of three key components: an ansatz, which is a parameterized quantum circuit used to represent trainable parameters; a cost function that maps quantum states to a high-dimensional landscape that needs to be optimized; and classical optimizers that use gradients to minimize this cost function. however, a critical challenge in training vqas is the phenomenon of barren plateaus, which occurs when gradients vanish and become exponentially close to zero, rendering the optimization landscape flat and making the circuit untrainable.",
       "icon": "⚛️",
       "pdfUrl": "https://arxiv.org/pdf/2012.09265"
@@ -63,5 +63,5 @@
     "website": "internetpersona.net",
     "interests": "quantum computing,deep learning,machine learning"
   },
-  "note": "personaOS v1.1\ncreated by github.com/uuu4\n\nI will be posting announcements here :)\n\nedit: Hi! Currently my finals are coming and i'm bored so i decided to make some things up in here. Hope y'all doing good!\n"
+  "note": "personaOS v1.1\ncreated by github.com/uuu4\n\nI will be posting announcements here :)\n\nedit: MY FINALS ARE FINALLY OVER. AND I HAVE DECIDED TO COMPETE IN PROGRAMMING OLYMPIADS. NOW GRINDING FOR COMPETITIVE PROGRAMMING. WISH ME LUCK...."
 }
