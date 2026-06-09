@@ -51,6 +51,24 @@
       "notes": "this paper essentially reviews and consolidates a comprehensive collection of literature on variational quantum algorithms (vqas) into a single framework. the core architecture of a vqa consists of three key components: an ansatz, which is a parameterized quantum circuit used to represent trainable parameters; a cost function that maps quantum states to a high-dimensional landscape that needs to be optimized; and classical optimizers that use gradients to minimize this cost function. however, a critical challenge in training vqas is the phenomenon of barren plateaus, which occurs when gradients vanish and become exponentially close to zero, rendering the optimization landscape flat and making the circuit untrainable.",
       "icon": "⚛️",
       "pdfUrl": "https://arxiv.org/pdf/2012.09265"
+    },
+    {
+      "id": "p1781041617994",
+      "title": "Competitive Programmer's Handbook",
+      "authors": "Antti Laaksonen",
+      "year": 2018,
+      "venue": "CSES.fi",
+      "tags": [
+        "competitive programming",
+        "algorithm",
+        "graph theory",
+        "number theory"
+      ],
+      "abstract": "The purpose of this book is to give you a thorough introduction to competitive\nprogramming. It is assumed that you already know the basics of programming,\nbut no previous background in competitive programming is needed.\nThe book is especially intended for students who want to learn algorithms\nand possibly participate in the International Olympiad in Informatics (IOI) or in\nthe International Collegiate Programming Contest (ICPC). Of course, the book is\nalso suitable for anybody else interested in competitive programming.\nIt takes a long time to become a good competitive programmer, but it is also\nan opportunity to learn a lot. You can be sure that you will get a good general\nunderstanding of algorithms if you spend time reading the book, solving problems\nand taking part in contests.",
+      "rating": 5,
+      "notes": "This resource is basically Holy Bible for competitive programming. It includes every intuition for every problem. Providing a detailed insights about defining a problem with their constraints/rules. Every CS student needs to read this.",
+      "icon": "💻",
+      "pdfUrl": "https://cses.fi/book/book.pdf"
     }
   ],
   "cv": {
