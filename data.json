@@ -69,6 +69,26 @@
       "notes": "This resource is basically Holy Bible for competitive programming. It includes every intuition for every problem. Providing a detailed insights about defining a problem with their constraints/rules. Every CS student needs to read this.",
       "icon": "💻",
       "pdfUrl": "https://cses.fi/book/book.pdf"
+    },
+    {
+      "id": "p1781820787751",
+      "title": "AUTO-AVSR: AUDIO-VISUAL SPEECH RECOGNITION WITH AUTOMATIC LABELS",
+      "authors": "Pingchuan Ma",
+      "year": 2023,
+      "venue": "ICASSP 2023",
+      "tags": [
+        "computer vision",
+        "AVSR",
+        "ASR",
+        "VSR",
+        "speech recognition",
+        "deep learning"
+      ],
+      "abstract": "Audio-visual speech recognition has received a lot of attention due\nto its robustness against acoustic noise. Recently, the performance of\nautomatic, visual, and audio-visual speech recognition (ASR, VSR,\nand AV-ASR, respectively) has been substantially improved, mainly\ndue to the use of larger models and training sets. However, accu-\nrate labelling of datasets is time-consuming and expensive. Hence,\nin this work, we investigate the use of automatically-generated tran-\nscriptions of unlabelled datasets to increase the training set size. For\nthis purpose, we use publicly-available pre-trained ASR models to\nautomatically transcribe unlabelled datasets such as AVSpeech and\nVoxCeleb2. Then, we train ASR, VSR and AV-ASR models on\nthe augmented training set, which consists of the LRS2 and LRS3\ndatasets as well as the additional automatically-transcribed data. We\ndemonstrate that increasing the size of the training set, a recent trend\nin the literature, leads to reduced WER despite using noisy tran-\nscriptions. The proposed model achieves new state-of-the-art per-\nformance on AV-ASR on LRS2 and LRS3. In particular, it achieves\na WER of 0.9 % on LRS3, a relative improvement of 30 % over the\ncurrent state-of-the-art approach, and outperforms methods that have\nbeen trained on non-publicly available datasets with 26 times more\ntraining data.",
+      "rating": 0,
+      "notes": "after a decade of lipnet's dominance in controlled settings, auto-avsr completely revolutionized the audio-visual speech recognition landscape by shattering the manual labeling bottleneck; by leveraging an automated pipeline to train on thousands of hours of raw, unlabelled videos using a powerful conformer architecture, it shifted the field from brittle, lab-based lip-reading to a robust, scalable multimodal system that delivers unprecedented word error rates in chaotic, real-world conditions.",
+      "icon": "🫦",
+      "pdfUrl": "https://arxiv.org/pdf/2303.14307"
     }
   ],
   "cv": {
