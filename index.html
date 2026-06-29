@@ -278,6 +278,24 @@ body.scanlines-off::after { display: none !important; }
 .gb-card .gb-meta { font-size: 11px; color: #886600; margin-top: 4px; font-style: italic; }
 .gb-card.gb-pending { opacity: .85; border-style: dashed; }
 
+/* ── GITHUB MINI PANEL ── */
+.gh-graph-box { background: var(--win-parch); border: 1px solid #c8a86060; padding: 8px; overflow-x: auto; }
+.gh-grid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 8px); grid-auto-columns: 8px; gap: 2px; width: max-content; }
+.gh-cell { width: 8px; height: 8px; }
+.gh-l0 { background: #e8dcc0; }
+.gh-l1 { background: #9be9a8; }
+.gh-l2 { background: #40c463; }
+.gh-l3 { background: #30a14e; }
+.gh-l4 { background: #216e39; }
+.gh-total { font-family: 'VT323', monospace; font-size: 13px; color: var(--muted); margin-top: 6px; }
+.gh-repo { display: block; text-decoration: none; background: var(--input-bg); border: 1px solid #c8a86050; padding: 6px 8px; margin-bottom: 6px; color: var(--text); }
+.gh-repo:hover { border-color: var(--accent); }
+.gh-repo-name { font-family: 'VT323', monospace; font-size: 15px; color: var(--tb-from); }
+.gh-repo-desc { font-family: 'Courier Prime', monospace; font-size: 11px; color: var(--muted); margin: 2px 0; line-height: 1.4; }
+.gh-repo-meta { font-family: 'Courier Prime', monospace; font-size: 11px; color: #8a6838; }
+.gh-lang { color: var(--accent); }
+.gh-err { font-family: 'VT323', monospace; font-size: 13px; color: var(--muted); }
+
 /* ──  WINDOW ── */
 .-layout { display: flex; gap: 12px; margin-bottom: 10px; }
 .pdf-preview-box {
@@ -1311,6 +1329,12 @@ function renderCV(){
       <div class="form-row" style="flex:1"><label>Website</label><input class="cv-field" value="${esc(cv.website)}" ${ro?ROFLAG:'oninput="cv.website=this.value;saveCV()"'}></div>
     </div>
     <hr class="divider">
+    <div class="section-label" style="margin-bottom:8px">GitHub</div>
+    ${ro?'':`<div class="form-row"><label>GitHub username</label><input class="cv-field" value="${esc(cv.github||'uuu4')}" oninput="cv.github=this.value;saveCV()" onchange="renderGitHubPanel()"></div>`}
+    <div id="gh-graph" class="gh-graph-box"><div class="gh-err">loading…</div></div>
+    <div class="section-label" style="margin:10px 0 6px">Recent Repos</div>
+    <div id="gh-repos"><div class="gh-err">loading…</div></div>
+    <hr class="divider">
     <div class="section-label" style="margin-bottom:8px">Reading Stats</div>
     <div class="stats-box">
       📚 Papers read: <b>${papers.length}</b> &nbsp;·&nbsp; ⭐ Avg rating: <b>${papers.length?(papers.reduce((s,p)=>s+(p.rating||0),0)/papers.length).toFixed(1):'—'}</b><br>
@@ -1318,6 +1342,28 @@ function renderCV(){
     </div><br>
     <button class="win-btn" onclick="closeWindow('about');toast('All saved ✓')">[ Done ]</button>
   `;
+  renderGitHubPanel();
+}
+// Live GitHub mini-panel (public CORS APIs, no auth, no worker).
+async function renderGitHubPanel(){
+  const graphEl=document.getElementById('gh-graph'), reposEl=document.getElementById('gh-repos');
+  if(!graphEl) return;
+  const user=(cv.github||'uuu4').trim();
+  try {
+    const d=await (await fetch(`https://github-contributions-api.jogruber.de/v4/${encodeURIComponent(user)}?y=last`)).json();
+    const cells=(d.contributions||[]).map(c=>`<div class="gh-cell gh-l${c.level||0}" title="${esc(c.date)}: ${c.count}"></div>`).join('');
+    const total=(d.total&&d.total.lastYear)||(d.contributions||[]).reduce((s,c)=>s+(c.count||0),0);
+    graphEl.innerHTML=`<div class="gh-grid">${cells}</div><div class="gh-total">${total} contributions in the last year · @${esc(user)}</div>`;
+  } catch(e){ graphEl.innerHTML=`<div class="gh-err">couldn't load contributions</div>`; }
+  if(!reposEl) return;
+  try {
+    const repos=await (await fetch(`https://api.github.com/users/${encodeURIComponent(user)}/repos?sort=updated&per_page=5&type=owner`)).json();
+    reposEl.innerHTML=Array.isArray(repos)&&repos.length ? repos.map(rp=>`<a class="gh-repo" href="${esc(rp.html_url)}" target="_blank" rel="noopener noreferrer">
+        <div class="gh-repo-name">📦 ${esc(rp.name)}</div>
+        ${rp.description?`<div class="gh-repo-desc">${esc(rp.description)}</div>`:''}
+        <div class="gh-repo-meta">${rp.language?`<span class="gh-lang">${esc(rp.language)}</span>`:''}${rp.stargazers_count?` ★ ${rp.stargazers_count}`:''}${rp.fork?' · fork':''}</div>
+      </a>`).join('') : `<div class="gh-err">no public repos</div>`;
+  } catch(e){ reposEl.innerHTML=`<div class="gh-err">couldn't load repos</div>`; }
 }
 function topTag(){const f={};papers.forEach(p=>p.tags.forEach(t=>f[t]=(f[t]||0)+1));const e=Object.entries(f).sort((a,b)=>b[1]-a[1])[0];return e?e[0]:'—';}
 function changeAvatar(){const e=['🧑‍💻','👨‍🔬','👩‍🔬','🧑‍🎓','👨‍🏫','🦊','🐙','🌿','🔭','📡','🧬'];const i=e.indexOf(cv.avatar);cv.avatar=e[(i+1)%e.length];saveCV();renderCV();}
