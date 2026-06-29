@@ -593,6 +593,31 @@ body.scanlines-off::after { display: none !important; }
   caret-color:#00ff41;
 }
 
+/* ── HACKER MODE (terminal: sudo unlock) ── */
+/* Just a body class + variable overrides feeding the same window engine. */
+#matrix { position: fixed; inset: 0; z-index: 0; pointer-events: none; display: none; }
+.d-icon.secret { display: none; }
+body.hacker #matrix { display: block; }
+body.hacker .d-icon.secret { display: flex; }
+body.hacker {
+  --desk:#000a00; --desk-line:#003b00;
+  --win-bg:#04140a; --win-parch:#072410; --win-bdr:#00cc33;
+  --tb-from:#003a00; --tb-to:#001500; --tb-txt:#00ff41;
+  --btn:#08401a; --btn-hi:#0c5e24; --btn-sh:#00aa30;
+  --text:#19ff5a; --muted:#16a83e; --accent:#39ff14; --accent2:#00e6c2;
+  --input-bg:#04140a; --bar:#000700; --bar-txt:#00ff41; --folder-bg:#07220f;
+}
+body.hacker #desktop { background-image: none; z-index: 1; }
+body.hacker::after {
+  background: repeating-linear-gradient(to bottom,
+    transparent 0 2px, rgba(0,255,65,0.06) 2px, rgba(0,40,0,0.22) 3px, rgba(0,40,0,0.22) 4px);
+}
+body.hacker .window { box-shadow: 0 0 0 1px rgba(0,255,65,.35), 0 0 22px rgba(0,255,65,.14), 4px 4px 0 rgba(0,20,0,.6); }
+body.hacker .titlebar { text-shadow: 0 0 6px rgba(0,255,65,.55); }
+body.hacker .icon-label, body.hacker #start-btn { text-shadow: 0 0 6px rgba(0,255,65,.5); }
+body.hacker #sticky-note { background:#0a1a0c; border-color:#00aa30; color:#19ff5a; box-shadow:0 0 16px rgba(0,255,65,.2); }
+body.hacker #sticky-note::before { background:#003a00; border-bottom-color:#00aa30; }
+
 </style>
 </head>
 <body>
@@ -609,6 +634,10 @@ body.scanlines-off::after { display: none !important; }
   <div class="d-icon" id="icon-guestbook" ondblclick="openGuestbook()" onclick="selectIcon('icon-guestbook')">
     <div class="icon-img">📬</div>
     <div class="icon-label">Guestbook</div>
+  </div>
+  <div class="d-icon secret" id="icon-classified" ondblclick="openClassified()" onclick="selectIcon('icon-classified')">
+    <div class="icon-img">🔓</div>
+    <div class="icon-label">root</div>
   </div>
 </div>
 
@@ -649,6 +678,9 @@ body.scanlines-off::after { display: none !important; }
 
 <!-- CRT vignette overlay -->
 <div id="crt-vignette" style="position:fixed;inset:0;pointer-events:none;z-index:99998;opacity:0;transition:opacity .3s;background:radial-gradient(ellipse 68% 68% at 50% 50%, transparent 42%, rgba(0,0,0,0.97) 100%)"></div>
+
+<!-- Matrix rain wallpaper — only drawn in hacker mode -->
+<canvas id="matrix"></canvas>
 
 <script>
 // ── SAFE STORAGE ──────────────────────────────────────────
@@ -1671,40 +1703,142 @@ function renderPrefsBody(){
   resetIdle();
 })();
 
-// ── GİZLİ TERMİNAL (` tuşu) ──────────────────────────────
+// ── HACKER MODE ───────────────────────────────────────────
+// A reskin, not a second OS: toggles a body class + reuses createWindow.
+const ACCESS_GRANTED = `<span class="t-ok">
+  ╔══════════════════════════════════╗
+  ║   A C C E S S   G R A N T E D    ║
+  ╚══════════════════════════════════╝</span>
+<span class="t-dim">decrypting filesystem............ done
+mounting /root/classified........ done
+spawning desktop node............ done</span>
+<span class="t-ok">a hidden icon appeared on your desktop.</span>
+<span class="t-dim">try:  decrypt   ·   lock (to undo)</span>`;
+
+const SECRET_NOTE = `&gt; ACCESS LEVEL: ROOT
+&gt; /root/classified/readme.txt
+
+so you actually found it. respect.
+
+stuff that doesn't make the front page:
+  · i refactor when i should be sleeping
+  · the olympiad grind is 50% ego, 50% love
+  · every paper in here rewired how i think, a little
+
+if you're reading this, you went digging for it.
+that says something about you too — we'd probably
+get along.
+
+  // type 'decrypt' in the terminal for one more thing
+  // 'lock' puts the lights back
+
+— ae · personaOS`;
+
+const DECRYPTED = `<span class="t-ok">DECRYPTING...</span>
+<span class="t-dim">key accepted.</span>
+
+"the best code is the code you never had to write."
+
+<span class="t-dim">p.s. you read the source. that's rare.
+say hi in the guestbook · github.com/uuu4</span>`;
+
+let _matrixRAF = null;
+function startMatrix(){
+  const c = document.getElementById('matrix'); if(!c) return;
+  const ctx = c.getContext('2d');
+  const fit = ()=>{ c.width=window.innerWidth; c.height=window.innerHeight; };
+  fit(); window.addEventListener('resize', fit);
+  const glyphs = 'アカサタナハマヤラワ0123456789ABCDEF<>/*$#';
+  const step = 16;
+  let drops = Array(Math.ceil(c.width/step)).fill(0).map(()=>Math.random()*-50);
+  let last = 0;
+  function draw(t){
+    if(!document.body.classList.contains('hacker')){ _matrixRAF=null; return; }
+    if(t-last > 55){ // ~18fps — cheap
+      last = t;
+      ctx.fillStyle = 'rgba(0,8,0,0.16)'; ctx.fillRect(0,0,c.width,c.height);
+      ctx.fillStyle = '#00ff5a'; ctx.font = '14px monospace';
+      const cols = Math.ceil(c.width/step);
+      if(drops.length!==cols) drops = Array(cols).fill(0).map((_,i)=>drops[i]||0);
+      for(let i=0;i<cols;i++){
+        ctx.fillText(glyphs[Math.floor(Math.random()*glyphs.length)], i*step, drops[i]*step);
+        drops[i] = (drops[i]*step > c.height && Math.random()>0.975) ? 0 : drops[i]+1;
+      }
+    }
+    _matrixRAF = requestAnimationFrame(draw);
+  }
+  if(_matrixRAF) cancelAnimationFrame(_matrixRAF);
+  _matrixRAF = requestAnimationFrame(draw);
+}
+function hackerSound(){
+  if(!prefs.sounds || !_sfx) return;
+  if(_sfx.state==='suspended') _sfx.resume();
+  [392,523,659,784].forEach((f,i)=>{
+    const o=_sfx.createOscillator(), g=_sfx.createGain(), t=_sfx.currentTime+i*0.09;
+    o.type='square'; o.frequency.setValueAtTime(f,t);
+    g.gain.setValueAtTime(0.06,t); g.gain.linearRampToValueAtTime(0,t+0.09);
+    o.connect(g); g.connect(_sfx.destination); o.start(t); o.stop(t+0.09);
+  });
+}
+function activateHacker(){
+  if(document.body.classList.contains('hacker')) return;
+  document.body.classList.add('hacker');
+  startMatrix();
+  hackerSound();
+  toast('⛓ ACCESS GRANTED');
+}
+function deactivateHacker(){
+  document.body.classList.remove('hacker'); // matrix loop self-stops
+  closeWindow('classified');
+  toast('systems re-secured');
+}
+function openClassified(){
+  createWindow({id:'classified',title:'/root/classified',icon:'🔓',width:440,height:400,
+    statusText:'TOP SECRET · self-destructs on refresh',buildBody:inner=>{
+      inner.innerHTML=`<div class="window-body" style="white-space:pre-wrap;line-height:1.7;font-size:14px;color:var(--text)">${SECRET_NOTE}</div>`;
+  }});
+}
+
+// ── HIDDEN TERMINAL (` key) ──────────────────────────────
 (()=>{
   const CMDS = {
     help: ()=>`<span class="t-ok">PERSONA/OS Terminal v1.0</span>
 <span class="t-dim">─────────────────────────────</span>
-  help          bu listeyi göster
-  ls            paper listesi
-  whoami        sen kimsin
-  pwd           neredesin
-  date          tarih ve saat
-  cat readme    bu OS hakkında
-  sudo          dene bakalım
-  rm -rf thesis denemedim bile
+  help          show this list
+  ls            list papers
+  whoami        who you are
+  pwd           where you are
+  date          date and time
+  cat readme    about this OS
+  sudo          give it a shot
+  rm -rf thesis didn't even dare
   coffee        ☕
-  clear         ekranı temizle`,
+  clear         clear the screen
+<span class="t-dim">─────────────────────────────
+  [ 1 command not listed — earn it ]</span>`,
 
     ls: ()=>{
-      if(!papers||!papers.length) return '<span class="t-dim">[ paper bulunamadı ]</span>';
+      if(!papers||!papers.length) return '<span class="t-dim">[ no papers found ]</span>';
       return papers.map((p,i)=>`<span class="t-dim">${String(i+1).padStart(2,'0')}</span>  ${p.title} <span class="t-dim">(${p.year})</span>`).join('\n');
     },
 
     whoami: ()=>`<span class="t-ok">${cv?.name||'unknown'}</span> — ${cv?.role||'researcher'}`,
     pwd:    ()=>'/home/personaos/papers',
-    date:   ()=>new Date().toLocaleString('tr-TR'),
-    coffee: ()=>`<span class="t-ok">☕ hazırlanıyor</span>\n<span class="t-dim">...........\nbitti. beğendin mi?</span>`,
+    date:   ()=>new Date().toLocaleString('en-US'),
+    coffee: ()=>`<span class="t-ok">☕ brewing</span>\n<span class="t-dim">...........\ndone. did you like it?</span>`,
     clear:  ()=>'__CLEAR__',
-    'cat readme': ()=>`personaOS — retro masaüstü paper kütüphanesi
-yazan: sen
-sürüm: 1.0.0
-lisans: pek öyle bir şey yok`,
-    'sudo make coffee': ()=>`[sudo] şifre: ****\n<span class="t-err">ERROR: coffee pot not found in /dev</span>`,
-    'sudo rm -rf /': ()=>`<span class="t-err">yavaş ol dostum.</span>`,
+    'cat readme': ()=>`personaOS — retro desktop paper library
+written by: you
+version: 1.0.0
+license: not much of one`,
+    'sudo make coffee': ()=>`[sudo] password: ****\n<span class="t-err">ERROR: coffee pot not found in /dev</span>`,
+    'sudo rm -rf /': ()=>`<span class="t-err">easy there, buddy.</span>`,
     'rm -rf thesis': ()=>`<span class="t-err">rm: cannot remove 'thesis': Too much pain attached</span>`,
-    sudo: ()=>`<span class="t-err">bu bir terminal easter egg'i, sudo gerçek değil 😌</span>`,
+    sudo: ()=>`<span class="t-err">this is a terminal easter egg, sudo isn't real 😌</span>`,
+    'sudo unlock': ()=>{ activateHacker(); return ACCESS_GRANTED; },
+    unlock:        ()=>{ activateHacker(); return ACCESS_GRANTED; },
+    decrypt: ()=> document.body.classList.contains('hacker') ? DECRYPTED : `<span class="t-err">decrypt: nothing to decrypt — system locked.</span>`,
+    lock: ()=>{ if(!document.body.classList.contains('hacker')) return `<span class="t-dim">already locked.</span>`; deactivateHacker(); return `<span class="t-dim">re-securing... lights off.</span>`; },
     exit: ()=>'__EXIT__',
     quit: ()=>'__EXIT__',
   };
@@ -1714,7 +1848,7 @@ lisans: pek öyle bir şey yok`,
     if(!cmd) return;
     // echo input
     outEl.innerHTML += `\n<span class="t-dim">❯</span> ${raw}\n`;
-    const fn = CMDS[cmd] || (()=>`<span class="t-err">komut bulunamadı: ${raw}\nyardım için 'help' yaz</span>`);
+    const fn = CMDS[cmd] || (()=>`<span class="t-err">command not found: ${raw}\ntype 'help' for a list</span>`);
     const result = fn();
     if(result==='__CLEAR__'){ outEl.innerHTML=''; return; }
     if(result==='__EXIT__'){ closeWindow('terminal'); return; }
@@ -1724,14 +1858,14 @@ lisans: pek öyle bir şey yok`,
 
   function openTerminal(){
     createWindow({id:'terminal', title:'Terminal', icon:'🖥', width:520, height:360,
-      statusText:'backtick (`) ile aç/kapat · exit ile çık',
+      statusText:'backtick (`) to toggle · exit to quit',
       buildBody: inner=>{
         inner.style.display='flex'; inner.style.flexDirection='column';
         inner.style.background='#000'; inner.style.height='100%';
         const out = document.createElement('div'); out.id='terminal-output';
-        out.innerHTML=`<span class="t-ok">PERSONA/OS Terminal</span> — <span class="t-dim">yardım için 'help' yaz</span>\n`;
+        out.innerHTML=`<span class="t-ok">PERSONA/OS Terminal</span> — <span class="t-dim">type 'help' to get started</span>\n`;
         const row = document.createElement('div'); row.id='terminal-input-row';
-        row.innerHTML=`<span>❯</span><input id="terminal-input" autocomplete="off" spellcheck="false" autofocus placeholder="komut gir...">`;
+        row.innerHTML=`<span>❯</span><input id="terminal-input" autocomplete="off" spellcheck="false" autofocus placeholder="enter command...">`;
         inner.appendChild(out); inner.appendChild(row);
         const inp = row.querySelector('#terminal-input');
         inp.addEventListener('keydown', e=>{
