@@ -267,6 +267,17 @@ body.scanlines-off::after { display: none !important; }
   width: 100%;
 }
 
+/* ── GUESTBOOK ── */
+.gb-card {
+  background: #fdf6a3; border: 1px solid #d4c040;
+  box-shadow: 2px 2px 0 rgba(0,0,0,.2);
+  padding: 8px 10px; margin-bottom: 8px;
+  font-family: 'Courier Prime', monospace; color: #2a2000;
+}
+.gb-card .gb-msg  { font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.gb-card .gb-meta { font-size: 11px; color: #886600; margin-top: 4px; font-style: italic; }
+.gb-card.gb-pending { opacity: .85; border-style: dashed; }
+
 /* ──  WINDOW ── */
 .-layout { display: flex; gap: 12px; margin-bottom: 10px; }
 .pdf-preview-box {
@@ -299,6 +310,10 @@ body.scanlines-off::after { display: none !important; }
 }
 .tags { display:flex; gap:4px; flex-wrap:wrap; margin: 6px 0 8px; }
 .tag { font-size: 14px; padding: 0 6px; border: 1px solid; font-family: 'VT323', monospace; letter-spacing: .3px; }
+.tag-x { cursor: pointer; margin-left: 4px; font-weight: bold; opacity: .7; }
+.tag-x:hover { opacity: 1; }
+.tag-add { font-family: 'VT323', monospace; font-size: 13px; background: var(--input-bg); border: 1px dashed var(--btn-sh); color: var(--text); padding: 0 6px; width: 84px; outline: none; }
+.tag-add:focus { border-color: var(--accent); }
 .divider { border:none; border-top: 1px dashed #c8b07080; margin: 10px 0; }
 .section-label {
   font-family: 'VT323', monospace;
@@ -572,6 +587,10 @@ body.scanlines-off::after { display: none !important; }
     <div class="icon-img">🪪</div>
     <div class="icon-label">About Me</div>
   </div>
+  <div class="d-icon" id="icon-guestbook" ondblclick="openGuestbook()" onclick="selectIcon('icon-guestbook')">
+    <div class="icon-img">📬</div>
+    <div class="icon-label">Guestbook</div>
+  </div>
 </div>
 
 <div id="preview-card" class="preview-card">
@@ -592,6 +611,7 @@ body.scanlines-off::after { display: none !important; }
   <div class="menu-items">
     <div class="menu-item" onclick="openReviews();closeStartMenu()">📁 Reviews</div>
     <div class="menu-item" onclick="openAbout();closeStartMenu()">🪪 About Me</div>
+    <div class="menu-item" onclick="openGuestbook();closeStartMenu()">📬 Guestbook</div>
     <div class="menu-item" onclick="openAddPaper();closeStartMenu()">📄 Add Paper</div>
     <div class="menu-item" onclick="openPreferences();closeStartMenu()">⚙ Preferences</div>
   </div>
@@ -840,6 +860,25 @@ function tagColor(t) {
   return tagColorCache[t];
 }
 function tagHTML(t) { const c=tagColor(t); return `<span class="tag" style="background:${c.bg};border-color:${c.border};color:${c.text}">${esc(t)}</span>`; }
+function allTags(){ const s=new Set(); papers.forEach(p=>(p.tags||[]).forEach(t=>s.add(t))); return [...s].sort(); }
+function tagEditorHTML(p){
+  const chips=(p.tags||[]).map((t,i)=>{const c=tagColor(t);return `<span class="tag" style="background:${c.bg};border-color:${c.border};color:${c.text}">${esc(t)}<span class="tag-x" onclick="removeTag('${p.id}',${i})">×</span></span>`;}).join('');
+  return `${chips}<input class="tag-add" id="tagin-${p.id}" list="alltags-${p.id}" placeholder="+tag" onkeydown="if(event.key==='Enter'){event.preventDefault();addTag('${p.id}')}"><datalist id="alltags-${p.id}">${allTags().map(t=>`<option value="${esc(t)}">`).join('')}</datalist>`;
+}
+function addTag(id){
+  const p=papers.find(x=>x.id===id); if(!p)return;
+  const inp=document.getElementById('tagin-'+id); if(!inp)return;
+  const v=inp.value.trim(); if(!v)return;
+  p.tags=p.tags||[];
+  if(!p.tags.includes(v)) p.tags.push(v);
+  savePapers(); renderPaperBody(p); renderFolderToolbar();
+  document.getElementById('tagin-'+id)?.focus();
+}
+function removeTag(id,i){
+  const p=papers.find(x=>x.id===id); if(!p||!p.tags)return;
+  p.tags.splice(i,1);
+  savePapers(); renderPaperBody(p);
+}
 function starsHTML(rating, id, editable=true) {
   return [1,2,3,4,5].map(i=>`<span class="star ${i<=rating?'lit':'unlit'}" ${editable?`onclick="setRating('${id}',${i},this)"`:'style="cursor:default"'}>★</span>`).join('');
 }
@@ -1043,6 +1082,86 @@ function renderFolderGrid(){
   });
 }
 
+// ── GUESTBOOK ─────────────────────────────────────────────
+// Stored in the Worker's KV (never committed). Visitors leave notes that
+// stay hidden until the admin approves them.
+function openGuestbook(){
+  createWindow({id:'guestbook',title:'Guestbook',icon:'📬',width:420,height:540,statusText:'leave a note for the host',buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body" id="gb-body"><div style="color:var(--muted);font-family:'VT323',monospace">Loading…</div></div>`;
+    loadGuestbook();
+  }});
+}
+async function loadGuestbook(){
+  const el=document.getElementById('gb-body'); if(!el) return;
+  if(!WORKER_URL){ el.innerHTML=`<div class="readonly-notice">Guestbook not configured.</div>`; return; }
+  const base=WORKER_URL.replace(/\/$/,'');
+  let entries=[];
+  try {
+    if(isAdmin()){
+      let pass=''; try{ pass=sessionStorage.getItem(PW_SESSION_KEY)||''; }catch(e){}
+      const r=await fetch(base+'/guestbook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pass,action:'list'})});
+      entries=(await r.json()).entries||[];
+    } else {
+      const r=await fetch(base+'/guestbook');
+      entries=(await r.json()).entries||[];
+    }
+  } catch(e){ el.innerHTML=`<div class="readonly-notice">Couldn't reach guestbook.</div>`; return; }
+  renderGuestbook(entries);
+}
+function renderGuestbook(entries){
+  const el=document.getElementById('gb-body'); if(!el) return;
+  const admin=isAdmin();
+  const cards = entries.length ? entries.map(e=>{
+    const pending = admin && !e.approved;
+    const ctrls = admin ? `<div style="margin-top:5px;display:flex;gap:4px">
+        ${pending?`<button class="win-btn" style="font-size:12px;padding:0 8px" onclick="gbAction('approve','${e.id}')">approve</button>`:''}
+        <button class="win-btn danger" style="font-size:12px;padding:0 8px" onclick="gbAction('delete','${e.id}')">delete</button>
+      </div>` : '';
+    return `<div class="gb-card${pending?' gb-pending':''}">
+      <div class="gb-msg">${esc(e.message).replace(/\n/g,'<br>')}</div>
+      <div class="gb-meta">— ${esc(e.name||'anon')} · ${new Date(e.ts).toLocaleDateString()}${pending?' · ⏳ pending':''}</div>
+      ${ctrls}
+    </div>`;
+  }).join('') : `<div style="color:var(--muted);font-style:italic;font-family:'Courier Prime',monospace;font-size:12px">No notes yet — be the first.</div>`;
+  el.innerHTML=`
+    <div class="section-label" style="margin-bottom:6px">LEAVE A NOTE</div>
+    <input id="gb-name" class="form-input" placeholder="your name (optional)" maxlength="40" style="margin-bottom:6px">
+    <textarea id="gb-msg" class="form-input" rows="3" maxlength="280" placeholder="say hi…" style="resize:vertical;margin-bottom:6px"></textarea>
+    <input id="gb-website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+    <button class="win-btn" id="gb-submit" onclick="submitGuestbook()">[ Post Note ]</button>
+    <div style="font-size:11px;color:var(--muted);font-family:'Courier Prime',monospace;margin-top:4px">Notes appear once the host approves them.</div>
+    <hr class="divider">
+    <div class="section-label" style="margin-bottom:6px">NOTES${admin?' · admin sees pending':''}</div>
+    <div>${cards}</div>`;
+}
+async function submitGuestbook(){
+  const msg=document.getElementById('gb-msg')?.value.trim()||'';
+  if(!msg){ toast('Write a message first'); return; }
+  const base=WORKER_URL.replace(/\/$/,'');
+  const btn=document.getElementById('gb-submit'); if(btn){ btn.disabled=true; btn.textContent='[ … ]'; }
+  try {
+    const r=await fetch(base+'/guestbook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      name:document.getElementById('gb-name')?.value||'',
+      message:msg,
+      website:document.getElementById('gb-website')?.value||'' // honeypot
+    })});
+    if(r.ok){ toast('Note sent — awaiting approval ✓'); loadGuestbook(); }
+    else { const e=await r.json().catch(()=>({})); toast(e.error||('Failed: '+r.status)); }
+  } catch(e){ toast('Network error'); }
+  finally { if(btn){ btn.disabled=false; btn.textContent='[ Post Note ]'; } }
+}
+async function gbAction(action,id){
+  if(action==='delete' && !confirm('Delete this note?')) return;
+  const base=WORKER_URL.replace(/\/$/,'');
+  let pass=''; try{ pass=sessionStorage.getItem(PW_SESSION_KEY)||''; }catch(e){}
+  try {
+    const r=await fetch(base+'/guestbook',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pass,action,id})});
+    if(r.ok){ renderGuestbook((await r.json()).entries||[]); toast(action==='approve'?'Approved ✓':'Deleted'); }
+    else if(r.status===401){ toast('Auth expired — log in again'); }
+    else toast('Action failed');
+  } catch(e){ toast('Network error'); }
+}
+
 // ── PAPER WINDOW ──────────────────────────────────────────
 function openPaper(id){
   const p=papers.find(x=>x.id===id);if(!p)return;
@@ -1067,7 +1186,7 @@ function renderPaperBody(p){
         <div class="paper-title">${esc(p.title)}</div>
         <div class="paper-authors">${esc(p.authors)}</div>
         <div class="paper-venue">${esc(p.venue)} · ${esc(p.year)}</div>
-        <div class="tags">${(p.tags||[]).map(t=>tagHTML(t)).join('')}</div>
+        <div class="tags" id="tags-${p.id}">${isAdmin()?tagEditorHTML(p):(p.tags||[]).map(t=>tagHTML(t)).join('')}</div>
         <div class="section-label" style="margin-top:4px;margin-bottom:4px">Rating</div>
         <div class="stars-row" id="stars-${p.id}">${starsHTML(p.rating,p.id,isAdmin())}</div>
       </div>

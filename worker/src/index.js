@@ -55,6 +55,24 @@ export default {
       }
     }
 
+    // ── Guestbook (Cloudflare KV — never committed to GitHub) ──
+    if (url.pathname === '/guestbook') {
+      if (req.method === 'GET') return guestbookList(env, cors, false);
+      if (req.method === 'POST') {
+        let b;
+        try { b = await req.json(); } catch { return json({ error: 'bad json' }, 400, cors); }
+        if (b.action) {
+          // admin moderation actions require the password
+          if (!env.ADMIN_PASSWORD || !ctEq(String(b.password || ''), env.ADMIN_PASSWORD)) {
+            await new Promise(r => setTimeout(r, 800));
+            return json({ error: 'unauthorized' }, 401, cors);
+          }
+          return guestbookAdmin(b, env, cors);
+        }
+        return guestbookSubmit(b, req, env, cors);
+      }
+    }
+
     if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405, cors);
 
     if (!env.GITHUB_TOKEN || !env.ADMIN_PASSWORD) {
@@ -124,6 +142,57 @@ async function commitDataJson(data, message, token) {
   }
   const out = await putRes.json();
   return { commit: out.commit?.sha, htmlUrl: out.commit?.html_url };
+}
+
+// ── Guestbook storage: single KV key 'guestbook' holding the entry array ──
+// ponytail: single-key read-modify-write. Fine for a personal site's traffic;
+// switch to per-entry keys only if concurrent writes ever actually collide.
+const GB_KEY = 'guestbook';
+
+async function gbRead(env) {
+  return JSON.parse((await env.GUESTBOOK.get(GB_KEY)) || '[]');
+}
+
+async function guestbookList(env, cors, all) {
+  if (!env.GUESTBOOK) return json({ entries: [] }, 200, cors);
+  const arr = await gbRead(env);
+  const out = (all ? arr : arr.filter(e => e.approved)).sort((a, b) => b.ts - a.ts);
+  return json({ entries: out }, 200, cors);
+}
+
+async function guestbookSubmit(b, req, env, cors) {
+  if (!env.GUESTBOOK) return json({ error: 'guestbook not configured' }, 500, cors);
+  // Honeypot: bots fill hidden fields. Pretend success so they don't retry.
+  if (b.website || b.url) return json({ ok: true }, 200, cors);
+
+  const name = String(b.name || '').trim().slice(0, 40) || 'anon';
+  const message = String(b.message || '').trim().slice(0, 280);
+  if (!message) return json({ error: 'message required' }, 400, cors);
+
+  // Rate limit: one note per IP per minute.
+  const ip = req.headers.get('CF-Connecting-IP') || '0';
+  const rlKey = 'rl:' + ip;
+  if (await env.GUESTBOOK.get(rlKey)) {
+    return json({ error: 'slow down — one note per minute' }, 429, cors);
+  }
+  await env.GUESTBOOK.put(rlKey, '1', { expirationTtl: 60 });
+
+  const arr = await gbRead(env);
+  arr.push({ id: 'g' + Date.now() + Math.random().toString(36).slice(2, 6), name, message, ts: Date.now(), approved: false });
+  await env.GUESTBOOK.put(GB_KEY, JSON.stringify(arr.slice(-500))); // cap growth
+  return json({ ok: true }, 200, cors);
+}
+
+async function guestbookAdmin(b, env, cors) {
+  if (!env.GUESTBOOK) return json({ error: 'guestbook not configured' }, 500, cors);
+  if (b.action === 'list') return guestbookList(env, cors, true);
+  const arr = await gbRead(env);
+  let next;
+  if (b.action === 'approve') next = arr.map(e => e.id === b.id ? { ...e, approved: true } : e);
+  else if (b.action === 'delete') next = arr.filter(e => e.id !== b.id);
+  else return json({ error: 'unknown action' }, 400, cors);
+  await env.GUESTBOOK.put(GB_KEY, JSON.stringify(next));
+  return guestbookList(env, cors, true);
 }
 
 function ctEq(a, b) {
