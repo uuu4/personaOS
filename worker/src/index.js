@@ -7,6 +7,7 @@
 const REPO   = 'uuu4/personaOS';
 const PATH   = 'data.json';
 const BRANCH = 'main';
+const SITE   = 'https://internetpersona.net'; // where humans get redirected
 
 // Adjust if you serve the site elsewhere; '*' is fine since auth is the password
 const ALLOWED_ORIGINS = ['https://internetpersona.net', 'http://localhost:8000', 'http://127.0.0.1:8000'];
@@ -53,6 +54,19 @@ export default {
       } catch (e) {
         return new Response('fetch failed: ' + String(e.message || e), { status: 502, headers: cors });
       }
+    }
+
+    // ── GET /card/:id.svg — templated SVG share card (id '_default' = banner) ──
+    if (req.method === 'GET' && url.pathname.startsWith('/card/') && url.pathname.endsWith('.svg')) {
+      const id = decodeURIComponent(url.pathname.slice(6, -4));
+      const p = (await getPapers()).find(x => x.id === id);
+      return new Response(renderCard(p), { headers: { ...cors, 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': 'public, max-age=300' } });
+    }
+
+    // ── GET /p/:id — OG meta page for crawlers, JS-redirect for humans ──
+    if (req.method === 'GET' && url.pathname.startsWith('/p/')) {
+      const id = decodeURIComponent(url.pathname.slice(3));
+      return paperPage(id, url.origin, cors);
     }
 
     // ── Guestbook (Cloudflare KV — never committed to GitHub) ──
@@ -142,6 +156,99 @@ async function commitDataJson(data, message, token) {
   }
   const out = await putRes.json();
   return { commit: out.commit?.sha, htmlUrl: out.commit?.html_url };
+}
+
+// ── Share cards (OG) ──────────────────────────────────────
+// ponytail: 60s in-isolate cache of data.json. Good enough; no KV/D1 needed.
+let _papersCache = null, _papersTs = 0;
+async function getPapers() {
+  if (_papersCache && Date.now() - _papersTs < 60000) return _papersCache;
+  try {
+    const r = await fetch(`https://raw.githubusercontent.com/${REPO}/${BRANCH}/${PATH}`, { headers: { 'User-Agent': 'personaos-worker' } });
+    if (r.ok) { const d = await r.json(); _papersCache = d.papers || []; _papersTs = Date.now(); }
+  } catch {}
+  return _papersCache || [];
+}
+
+function xesc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function wrapText(s, max, maxLines) {
+  const words = String(s || '').trim().split(/\s+/);
+  const lines = []; let cur = '';
+  for (const w of words) {
+    if ((cur + ' ' + w).trim().length > max) {
+      if (cur) lines.push(cur);
+      cur = w;
+      if (lines.length >= maxLines) break;
+    } else cur = (cur + ' ' + w).trim();
+  }
+  if (cur && lines.length < maxLines) lines.push(cur);
+  if (lines.length === maxLines && lines[maxLines - 1].length > max - 1) lines[maxLines - 1] = lines[maxLines - 1].slice(0, max - 1) + '…';
+  return lines;
+}
+
+function renderCard(p) {
+  const title = p ? p.title : 'personaOS';
+  const titleLines = wrapText(title, 26, 3);
+  const authors = p ? (p.authors || '') : 'a retro desktop library for academic papers';
+  const venue = p ? [p.venue, p.year].filter(Boolean).join(' · ') : 'internetpersona.net';
+  const tags = p ? (p.tags || []).slice(0, 5) : [];
+  const rating = p ? (p.rating || 0) : 0;
+  const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+
+  let ty = 250;
+  const titleSvg = titleLines.map(l => { const y = ty; ty += 78; return `<text x="80" y="${y}" font-family="Georgia,serif" font-size="62" font-weight="bold" fill="#1c120a">${xesc(l)}</text>`; }).join('');
+
+  let tx = 80;
+  const tagSvg = tags.map(t => {
+    const w = 28 + t.length * 15;
+    const chip = `<g><rect x="${tx}" y="498" width="${w}" height="40" rx="4" fill="#ede0bc" stroke="#7a6030"/><text x="${tx + 14}" y="525" font-family="monospace" font-size="22" fill="#5a4828">${xesc(t)}</text></g>`;
+    tx += w + 10;
+    return tx < 1120 ? chip : '';
+  }).join('');
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#f3e8cc"/>
+  <rect x="14" y="14" width="1172" height="602" fill="none" stroke="#1a1008" stroke-width="3"/>
+  <rect x="14" y="14" width="1172" height="12" fill="#c87820"/>
+  ${p ? `<text x="80" y="130" font-family="monospace" font-size="26" fill="#8a6838">📚 personaOS · paper review</text>` : `<text x="80" y="130" font-family="monospace" font-size="26" fill="#8a6838">📚 personaOS</text>`}
+  ${titleSvg}
+  <text x="80" y="${Math.min(ty + 10, 450)}" font-family="monospace" font-size="28" font-style="italic" fill="#5a4828">${xesc(authors).slice(0, 60)}</text>
+  ${tagSvg}
+  <text x="80" y="595" font-family="monospace" font-size="24" fill="#8a6838">${xesc(venue)}</text>
+  ${p ? `<text x="1120" y="130" text-anchor="end" font-family="monospace" font-size="34" fill="#c87820">${stars}</text>` : ''}
+  <text x="1120" y="595" text-anchor="end" font-family="monospace" font-size="22" fill="#8a6838">internetpersona.net</text>
+</svg>`;
+}
+
+async function paperPage(id, base, cors) {
+  const p = (await getPapers()).find(x => x.id === id);
+  const title = p ? p.title : 'personaOS';
+  const desc = (p ? (p.abstract || p.notes || '') : 'A retro desktop-style library for academic papers.').replace(/\s+/g, ' ').trim().slice(0, 180);
+  const img = `${base}/card/${encodeURIComponent(id)}.svg`;
+  const target = `${SITE}/?paper=${encodeURIComponent(id)}`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>${xesc(title)} — personaOS</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta property="og:type" content="article">
+<meta property="og:title" content="${xesc(title)}">
+<meta property="og:description" content="${xesc(desc)}">
+<meta property="og:url" content="${xesc(target)}">
+<meta property="og:image" content="${xesc(img)}">
+<meta property="og:image" content="${base}/card/_default.svg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${xesc(title)}">
+<meta name="twitter:description" content="${xesc(desc)}">
+<meta name="twitter:image" content="${xesc(img)}">
+<meta http-equiv="refresh" content="0;url=${xesc(target)}">
+<script>location.replace(${JSON.stringify(target)})</script>
+</head><body style="font-family:monospace;background:#09080a;color:#e8c060;text-align:center;padding:48px 20px">
+<p>Redirecting to personaOS…</p>
+<p><a href="${xesc(target)}" style="color:#c87820">Open “${xesc(title)}” →</a></p>
+</body></html>`;
+  return new Response(html, { headers: { ...cors, 'Content-Type': 'text/html; charset=utf-8' } });
 }
 
 // ── Guestbook storage: single KV key 'guestbook' holding the entry array ──

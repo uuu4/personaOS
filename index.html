@@ -1186,6 +1186,7 @@ function renderPaperBody(p){
         <div class="paper-title">${esc(p.title)}</div>
         <div class="paper-authors">${esc(p.authors)}</div>
         <div class="paper-venue">${esc(p.venue)} · ${esc(p.year)}</div>
+        ${WORKER_URL?`<button class="win-btn" style="font-size:13px;padding:0 8px;margin-bottom:8px" onclick="copyShare('${p.id}')">🔗 Share</button>`:''}
         <div class="tags" id="tags-${p.id}">${isAdmin()?tagEditorHTML(p):(p.tags||[]).map(t=>tagHTML(t)).join('')}</div>
         <div class="section-label" style="margin-top:4px;margin-bottom:4px">Rating</div>
         <div class="stars-row" id="stars-${p.id}">${starsHTML(p.rating,p.id,isAdmin())}</div>
@@ -1212,6 +1213,11 @@ function renderPaperBody(p){
   renderPdfPreview(p.pdfUrl, pdfBoxId);
 }
 
+function copyShare(id){
+  const u = WORKER_URL.replace(/\/$/,'') + '/p/' + id;
+  if(navigator.clipboard?.writeText){ navigator.clipboard.writeText(u).then(()=>toast('Share link copied 🔗'),()=>prompt('Copy link:',u)); }
+  else prompt('Copy link:',u);
+}
 function savePdfUrl(id){
   const p=papers.find(x=>x.id===id);if(!p)return;
   const input=document.getElementById('pdfurl-'+id);if(!input)return;
@@ -1557,6 +1563,8 @@ function renderPrefsBody(){
   await bootData();
   applyPrefs();
   setTimeout(()=>openReviews(),200);
+  const deepId=new URLSearchParams(location.search).get('paper');
+  if(deepId && papers.some(p=>p.id===deepId)) setTimeout(()=>openPaper(deepId),400);
   if(!_lsOk) setTimeout(()=>toast('⚠ Storage disabled — changes won\'t persist'),1200);
   if(!remoteSnapshot) setTimeout(()=>toast('ℹ data.json not found — showing defaults'),1600);
 })();
