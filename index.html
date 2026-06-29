@@ -18,12 +18,12 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=VT323&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
 <style>
 :root {
-  --desk:      #09080a;
-  --desk-line: #131118;
+  --desk:      #17110b;
+  --desk-line: #261d14;
   --win-bg:    #f3e8cc;
   --win-parch: #ede0bc;
   --win-bdr:   #1a1008;
@@ -36,8 +36,9 @@
   --text:      #1e1408;
   --muted:     #5a4828;
   --accent:    #c87820;
+  --accent2:   #1f7a8c;
   --input-bg:  #faf4e4;
-  --bar:       #060508;
+  --bar:       #0e0a06;
   --bar-txt:   #c8a848;
   --folder-bg: #e8d8b0;
 }
@@ -45,11 +46,14 @@
 html { background: #000; }
 
 body {
-  font-family: 'VT323', monospace;
+  font-family: 'Pixelify Sans', monospace;
   background: var(--desk);
   width: 100vw; height: 100vh;
   overflow: hidden;
   user-select: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* CRT scanlines */
@@ -59,7 +63,7 @@ body::after {
   background: repeating-linear-gradient(
     to bottom,
     transparent 0px, transparent 3px,
-    rgba(0,0,0,0.10) 3px, rgba(0,0,0,0.10) 4px
+    rgba(0,0,0,0.05) 3px, rgba(0,0,0,0.05) 4px
   );
   pointer-events: none;
   z-index: 9999;
@@ -75,10 +79,8 @@ body.scanlines-off::after { display: none !important; }
   flex-wrap: wrap;
   align-content: flex-start;
   gap: 10px;
-  background-image:
-    repeating-linear-gradient(to right, var(--desk-line) 0, var(--desk-line) 1px, transparent 1px, transparent 40px),
-    repeating-linear-gradient(to bottom, var(--desk-line) 0, var(--desk-line) 1px, transparent 1px, transparent 40px);
-  background-size: 40px 40px;
+  background-image: radial-gradient(var(--desk-line) 1px, transparent 1.5px);
+  background-size: 24px 24px;
 }
 
 /* ── DESKTOP ICONS ── */
@@ -89,10 +91,10 @@ body.scanlines-off::after { display: none !important; }
   border: 1px solid transparent;
 }
 .d-icon:hover   { border-color: #c8a040; background: rgba(200,160,64,.08); }
-.d-icon.selected{ border-color: #c8a040; background: rgba(200,160,64,.15); }
+.d-icon.selected{ border-color: var(--accent2); background: rgba(31,122,140,.18); }
 .d-icon .icon-img { font-size: 38px; filter: drop-shadow(1px 2px 0 #000000aa); }
 .d-icon .icon-label {
-  font-family: 'VT323', monospace;
+  font-family: 'Pixelify Sans', monospace;
   font-size: 15px; color: #d8c070;
   text-align: center; line-height: 1.3; max-width: 78px;
   text-shadow: 1px 1px 0 #000;
@@ -110,11 +112,17 @@ body.scanlines-off::after { display: none !important; }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
   border: 2px solid var(--win-bdr);
 
-  box-shadow: 4px 4px 0 #000, inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh);
+  box-shadow: 3px 3px 0 rgba(10,6,2,0.5), 7px 9px 22px rgba(0,0,0,0.4), inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh);
   animation: winOpen .12s steps(2) both;
   z-index: 10;
 }
 .window.focused  { z-index: 100; }
+.window.focused .titlebar { box-shadow: inset 0 -2px 0 var(--accent2); }
+.window-body a { color: var(--accent2); }
+.win-btn:focus-visible, .form-input:focus-visible, .cv-field:focus-visible,
+.notes-area:focus-visible, .cv-textarea:focus-visible, .tag-add:focus-visible {
+  outline: 2px solid var(--accent2); outline-offset: 1px;
+}
 .window.minimized{ display: none; }
 .window.closing    { animation: winClose .10s steps(2) both; }
 .window.maximized  { left:0!important;top:0!important;width:100vw!important;height:calc(100vh - 34px)!important;transition:none; }
@@ -125,7 +133,7 @@ body.scanlines-off::after { display: none !important; }
   padding: 5px 8px;
   display: flex; align-items: center; gap: 6px;
   cursor: move;
-  font-family: 'VT323', monospace;
+  font-family: 'Pixelify Sans', monospace;
   font-size: 17px; letter-spacing: .5px;
   border-bottom: 1px solid var(--win-bdr);
   flex-shrink: 0;
@@ -133,31 +141,24 @@ body.scanlines-off::after { display: none !important; }
 .titlebar .title-text { flex: 1; }
 .wbtn-group { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 .wbtn {
-  width: 52px; height: 14px;
-  border-radius: 2px;
-  border: none;
+  width: 20px; height: 18px;
+  border: 1px solid var(--win-bdr);
+  background: var(--btn);
+  box-shadow: inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh);
   cursor: pointer;
-  font-size: 0;
+  padding: 0;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  transition: filter .12s;
-  position: relative;
 }
 .wbtn::after {
   content: attr(data-sym);
-  font-size: 9px;
-  line-height: 1;
-  color: rgba(0,0,0,0.45);
-  opacity: 0;
-  transition: opacity .12s;
-  font-family: monospace;
-  font-weight: bold;
+  font-size: 11px; line-height: 1;
+  color: var(--text);
+  font-family: 'Pixelify Sans', monospace; font-weight: 600;
 }
-.titlebar:hover .wbtn::after { opacity: 1; }
-.wbtn:active { filter: brightness(.75); }
-.wbtn-min  { background: var(--muted); }
-.wbtn-max  { background: var(--btn-sh); }
-.wbtn-close{ background: var(--accent); }
+.wbtn:hover  { background: var(--btn-hi); }
+.wbtn:active { box-shadow: inset -1px -1px 0 var(--btn-hi), inset 1px 1px 0 var(--btn-sh); }
+.wbtn-close::after { color: #9b2020; }
 
 .window-body {
   flex: 1; overflow-y: auto;
@@ -174,7 +175,7 @@ body.scanlines-off::after { display: none !important; }
   font-size: 14px; color: var(--btn-sh);
   background: var(--win-parch);
   flex-shrink: 0;
-  font-family: 'VT323', monospace;
+  font-family: 'Pixelify Sans', monospace;
 }
 .resize-handle {
   position: absolute; right: 0; bottom: 0;
@@ -200,10 +201,10 @@ body.scanlines-off::after { display: none !important; }
   position: relative;
 }
 .folder-icon:hover   { border-color: var(--accent); background: rgba(200,120,32,.08); }
-.folder-icon.selected{ border-color: var(--accent); background: rgba(200,120,32,.15); }
+.folder-icon.selected{ border-color: var(--accent2); background: rgba(31,122,140,.16); }
 .folder-icon .f-img  { font-size: 28px; filter: drop-shadow(1px 2px 0 rgba(0,0,0,.4)); }
 .folder-icon .f-label {
-  font-family: 'VT323', monospace;
+  font-family: 'Pixelify Sans', monospace;
   font-size: 13px; color: var(--text); text-align: center;
   line-height: 1.25; max-width: 76px;
   overflow: hidden; display: -webkit-box;
@@ -224,7 +225,7 @@ body.scanlines-off::after { display: none !important; }
 }
 .preview-card.show { opacity: 1; }
 .preview-card .pc-title { font-family:'Pixelify Sans',sans-serif; font-size:12px; color:var(--tb-from); line-height:1.3; margin-bottom:4px; font-weight:600; }
-.preview-card .pc-meta  { font-family:'Courier Prime',monospace; font-size:11px; color:var(--muted); font-style:italic; margin-bottom:6px; }
+.preview-card .pc-meta  { font-family:'Pixelify Sans',monospace; font-size:11px; color:var(--muted); font-style:italic; margin-bottom:6px; }
 .preview-card .pc-stars { font-size:16px; letter-spacing:2px; }
 
 /* ── STICKY NOTE ── */
@@ -235,7 +236,7 @@ body.scanlines-off::after { display: none !important; }
   border: 1px solid #d4c040;
   box-shadow: 3px 3px 0 rgba(0,0,0,0.35);
   padding: 10px 12px 14px;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Pixelify Sans', monospace;
   font-size: 13px;
   color: #2a2000;
   line-height: 1.5;
@@ -263,7 +264,7 @@ body.scanlines-off::after { display: none !important; }
   border: 1px dashed #aaa020;
   padding: 2px 6px;
   cursor: pointer;
-  font-family: 'VT323', monospace;
+  font-family: 'Pixelify Sans', monospace;
   width: 100%;
 }
 
@@ -272,7 +273,7 @@ body.scanlines-off::after { display: none !important; }
   background: #fdf6a3; border: 1px solid #d4c040;
   box-shadow: 2px 2px 0 rgba(0,0,0,.2);
   padding: 8px 10px; margin-bottom: 8px;
-  font-family: 'Courier Prime', monospace; color: #2a2000;
+  font-family: 'Pixelify Sans', monospace; color: #2a2000;
 }
 .gb-card .gb-msg  { font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
 .gb-card .gb-meta { font-size: 11px; color: #886600; margin-top: 4px; font-style: italic; }
@@ -287,17 +288,17 @@ body.scanlines-off::after { display: none !important; }
 .gh-l2 { background: #40c463; }
 .gh-l3 { background: #30a14e; }
 .gh-l4 { background: #216e39; }
-.gh-total { font-family: 'VT323', monospace; font-size: 13px; color: var(--muted); margin-top: 6px; }
+.gh-total { font-family: 'Pixelify Sans', monospace; font-size: 13px; color: var(--muted); margin-top: 6px; }
 .gh-repo { display: block; text-decoration: none; background: var(--input-bg); border: 1px solid #c8a86050; padding: 6px 8px; margin-bottom: 6px; color: var(--text); }
 .gh-repo:hover { border-color: var(--accent); }
-.gh-repo-name { font-family: 'VT323', monospace; font-size: 15px; color: var(--tb-from); }
-.gh-repo-desc { font-family: 'Courier Prime', monospace; font-size: 11px; color: var(--muted); margin: 2px 0; line-height: 1.4; }
-.gh-repo-meta { font-family: 'Courier Prime', monospace; font-size: 11px; color: #8a6838; }
+.gh-repo-name { font-family: 'Pixelify Sans', monospace; font-size: 15px; color: var(--tb-from); }
+.gh-repo-desc { font-family: 'Pixelify Sans', monospace; font-size: 11px; color: var(--muted); margin: 2px 0; line-height: 1.4; }
+.gh-repo-meta { font-family: 'Pixelify Sans', monospace; font-size: 11px; color: #8a6838; }
 .gh-lang { color: var(--accent); }
-.gh-err { font-family: 'VT323', monospace; font-size: 13px; color: var(--muted); }
+.gh-err { font-family: 'Pixelify Sans', monospace; font-size: 13px; color: var(--muted); }
 
 /* ──  WINDOW ── */
-.-layout { display: flex; gap: 12px; margin-bottom: 10px; }
+.paper-layout { display: flex; gap: 12px; margin-bottom: 10px; }
 .pdf-preview-box {
   flex-shrink: 0; width: 180px;
   border: 1px solid var(--btn-sh);
@@ -310,36 +311,36 @@ body.scanlines-off::after { display: none !important; }
 .pdf-preview-box canvas { display: block; width: 100% !important; height: auto !important; }
 .pdf-preview-box .pdf-placeholder {
   font-size: 11px; color: var(--muted); text-align: center; padding: 10px;
-  font-family: 'VT323', monospace; font-size: 14px; line-height: 1.4;
+  font-family: 'Pixelify Sans', monospace; font-size: 14px; line-height: 1.4;
 }
-.-meta-col { flex: 1; min-width: 0; }
-.-title {
+.paper-meta-col { flex: 1; min-width: 0; }
+.paper-title {
   font-family: 'Pixelify Sans', sans-serif;
   font-size: 16px; font-weight: 600;
   color: var(--tb-from); line-height: 1.3; margin-bottom: 5px;
 }
-.-authors {
-  font-family: 'Courier Prime', monospace;
+.paper-authors {
+  font-family: 'Pixelify Sans', monospace;
   font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 3px;
 }
-.-venue {
-  font-family: 'Courier Prime', monospace;
+.paper-venue {
+  font-family: 'Pixelify Sans', monospace;
   font-size: 11px; color: #8a6838; margin-bottom: 8px;
 }
 .tags { display:flex; gap:4px; flex-wrap:wrap; margin: 6px 0 8px; }
-.tag { font-size: 14px; padding: 0 6px; border: 1px solid; font-family: 'VT323', monospace; letter-spacing: .3px; }
+.tag { font-size: 14px; padding: 0 6px; border: 1px solid; font-family: 'Pixelify Sans', monospace; letter-spacing: .3px; }
 .tag-x { cursor: pointer; margin-left: 4px; font-weight: bold; opacity: .7; }
 .tag-x:hover { opacity: 1; }
-.tag-add { font-family: 'VT323', monospace; font-size: 13px; background: var(--input-bg); border: 1px dashed var(--btn-sh); color: var(--text); padding: 0 6px; width: 84px; outline: none; }
+.tag-add { font-family: 'Pixelify Sans', monospace; font-size: 13px; background: var(--input-bg); border: 1px dashed var(--btn-sh); color: var(--text); padding: 0 6px; width: 84px; outline: none; }
 .tag-add:focus { border-color: var(--accent); }
 .divider { border:none; border-top: 1px dashed #c8b07080; margin: 10px 0; }
 .section-label {
-  font-family: 'VT323', monospace;
+  font-family: 'Pixelify Sans', monospace;
   font-size: 14px; letter-spacing: 1px;
   color: var(--muted); margin-bottom: 4px; text-transform: uppercase;
 }
 .abstract-text {
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Pixelify Sans', monospace;
   font-size: 12px; line-height: 1.75; color: #3a2c14;
 }
 
@@ -358,7 +359,7 @@ body.scanlines-off::after { display: none !important; }
   border: 1px solid #c8a86060;
   box-shadow: inset 1px 1px 2px rgba(0,0,0,.1);
   padding: 8px 10px;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Pixelify Sans', monospace;
   font-size: 13px; color: var(--text);
   resize: vertical; outline: none; line-height: 1.7;
 }
@@ -370,7 +371,7 @@ body.scanlines-off::after { display: none !important; }
   border: 1px solid var(--win-bdr);
   box-shadow: inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh);
   padding: 2px 14px;
-  font-family: 'VT323', monospace; font-size: 17px;
+  font-family: 'Pixelify Sans', monospace; font-size: 17px;
   cursor: pointer; color: var(--text);
 }
 .win-btn:hover  { background: var(--btn-hi); }
@@ -387,7 +388,7 @@ body.scanlines-off::after { display: none !important; }
 }
 .cv-name-input:focus { border-bottom-color: var(--accent); }
 .cv-field {
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Pixelify Sans', monospace;
   font-size: 12px; color: var(--text);
   width: 100%; background: var(--input-bg);
   border: 1px solid #c8a86050;
@@ -396,7 +397,7 @@ body.scanlines-off::after { display: none !important; }
 }
 .cv-field:focus { border-color: var(--accent); }
 .cv-textarea {
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Pixelify Sans', monospace;
   font-size: 12px; color: var(--text);
   width: 100%; background: var(--input-bg);
   border: 1px solid #c8a86050;
@@ -408,7 +409,7 @@ body.scanlines-off::after { display: none !important; }
   background: var(--win-parch);
   border: 1px solid #c8a86060;
   padding: 10px 12px;
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Pixelify Sans', monospace;
   font-size: 12px; line-height: 2; color: var(--text);
 }
 .stats-box b { color: var(--accent); }
@@ -416,7 +417,7 @@ body.scanlines-off::after { display: none !important; }
 /* ── ADD  FORM ── */
 .form-row { margin-bottom: 8px; }
 .form-row label {
-  display: block; font-family: 'VT323', monospace;
+  display: block; font-family: 'Pixelify Sans', monospace;
   font-size: 14px; letter-spacing: .8px; color: var(--muted);
   margin-bottom: 2px; text-transform: uppercase;
 }
@@ -425,7 +426,7 @@ body.scanlines-off::after { display: none !important; }
   border: 1px solid #c8a86050;
   box-shadow: inset 0 1px 3px rgba(0,0,0,.06);
   padding: 4px 8px;
-  font-family: 'Courier Prime', monospace; font-size: 12px; color: var(--text); outline: none;
+  font-family: 'Pixelify Sans', monospace; font-size: 12px; color: var(--text); outline: none;
 }
 .form-input:focus { border-color: var(--accent); }
 
@@ -443,22 +444,22 @@ body.scanlines-off::after { display: none !important; }
   border: 1px solid var(--win-bdr);
   box-shadow: inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh);
   padding: 2px 12px;
-  font-family: 'VT323', monospace; font-size: 17px;
+  font-family: 'Pixelify Sans', monospace; font-size: 17px;
   cursor: pointer; color: var(--text); flex-shrink: 0;
 }
 #start-btn:hover { background: var(--btn-hi); }
 .task-sep { width:1px; height:20px; background: #3a2808; margin: 0 2px; }
 .taskbar-btn {
   background: transparent; border: 1px solid transparent;
-  color: #a08838; font-family: 'VT323', monospace; font-size: 16px;
+  color: #a08838; font-family: 'Pixelify Sans', monospace; font-size: 16px;
   padding: 2px 8px; cursor: pointer;
   max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;
 }
 .taskbar-btn:hover  { border-color: #7a6030; color: var(--bar-txt); }
-.taskbar-btn.active { border-color: #a08030; color: var(--bar-txt); }
+.taskbar-btn.active { border-color: var(--accent2); color: var(--bar-txt); box-shadow: inset 0 -2px 0 var(--accent2); }
 #tray { margin-left:auto; padding:0 10px; border-left:1px solid #3a2808; color: var(--bar-txt); font-size:17px; display:flex; align-items:center; gap:10px; }
 #admin-badge {
-  font-family:'VT323',monospace; font-size:15px;
+  font-family:'Pixelify Sans',monospace; font-size:15px;
   padding:1px 8px; border:1px solid; cursor:pointer;
 }
 #admin-badge.locked   { color:#888; border-color:#444; }
@@ -466,7 +467,7 @@ body.scanlines-off::after { display: none !important; }
 .readonly-notice {
   background: var(--win-parch); border:1px solid #c8a86060;
   padding:6px 10px; font-size:14px; color:var(--muted);
-  margin-bottom:10px; font-family:'VT323',monospace; letter-spacing:.3px;
+  margin-bottom:10px; font-family:'Pixelify Sans',monospace; letter-spacing:.3px;
 }
 
 /* ── START MENU ── */
@@ -484,13 +485,13 @@ body.scanlines-off::after { display: none !important; }
   color: var(--tb-txt); padding: 10px 8px;
   writing-mode: vertical-rl; transform: rotate(180deg);
   float: left; font-size: 17px; letter-spacing: 2px;
-  font-family: 'VT323', monospace;
+  font-family: 'Pixelify Sans', monospace;
 }
 .menu-items { margin-left: 36px; padding: 4px 0; }
 .menu-item {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 10px; font-size: 17px; cursor: pointer; color: var(--text);
-  font-family: 'VT323', monospace;
+  font-family: 'Pixelify Sans', monospace;
 }
 .menu-item:hover { background: rgba(200,120,32,.15); color: var(--accent); }
 
@@ -502,7 +503,7 @@ body.scanlines-off::after { display: none !important; }
   z-index: 3000; display: none; min-width: 170px;
 }
 #ctx-menu.open { display: block; }
-.ctx-item { padding: 5px 14px; font-size: 17px; cursor: pointer; color: var(--text); font-family:'VT323',monospace; }
+.ctx-item { padding: 5px 14px; font-size: 17px; cursor: pointer; color: var(--text); font-family:'Pixelify Sans',monospace; }
 .ctx-item:hover { background: rgba(200,120,32,.12); color: var(--accent); }
 .ctx-sep { border-top: 1px solid #c8a86030; margin: 2px 0; }
 
@@ -510,7 +511,7 @@ body.scanlines-off::after { display: none !important; }
 #toast {
   position: fixed; bottom: 46px; right: 16px;
   background: var(--tb-from); color: var(--tb-txt);
-  font-family: 'VT323', monospace; font-size: 17px;
+  font-family: 'Pixelify Sans', monospace; font-size: 17px;
   padding: 3px 14px; border: 1px solid var(--btn-sh);
   box-shadow: 2px 2px 0 #000;
   opacity: 0; transition: opacity .15s steps(1); pointer-events: none; z-index: 5000;
@@ -533,7 +534,7 @@ body.scanlines-off::after { display: none !important; }
     min-height: 0;
   }
   .resize-handle { display: none; }
-  .-layout { flex-direction: column; }
+  .paper-layout { flex-direction: column; }
   .pdf-preview-box { width: 100%; min-height: 180px; }
   #start-menu { width: 184px; }
   .taskbar-btn { max-width: 90px; font-size: 14px; }
@@ -556,7 +557,7 @@ body.scanlines-off::after { display: none !important; }
 }
 #screensaver-text {
   position: absolute;
-  font-family: 'VT323', monospace;
+  font-family: 'Pixelify Sans', monospace;
   font-size: 28px;
   color: #00ff41;
   text-shadow: 0 0 10px #00ff41, 0 0 24px #00ff4155;
@@ -566,7 +567,7 @@ body.scanlines-off::after { display: none !important; }
 
 /* ── TERMINAL ── */
 #terminal-output {
-  font-family: 'Courier Prime', monospace;
+  font-family: 'Space Mono', monospace;
   font-size: 13px;
   color: #00ff41;
   background: #000;
@@ -585,10 +586,10 @@ body.scanlines-off::after { display: none !important; }
   background: #000; border-top: 1px solid #003300;
   padding: 6px 10px; gap: 6px; flex-shrink: 0;
 }
-#terminal-input-row span { color: #00ff41; font-family:'Courier Prime',monospace; font-size:13px; }
+#terminal-input-row span { color: #00ff41; font-family:'Space Mono',monospace; font-size:13px; }
 #terminal-input {
   flex:1; background:transparent; border:none; outline:none;
-  color:#00ff41; font-family:'Courier Prime',monospace; font-size:13px;
+  color:#00ff41; font-family:'Space Mono',monospace; font-size:13px;
   caret-color:#00ff41;
 }
 
@@ -701,13 +702,13 @@ function openLoginWindow(){
     inner.innerHTML=`<div class="window-body">
       <div class="section-label" style="margin-bottom:8px">PASSWORD</div>
       <input class="form-input" id="login-pass" type="password" placeholder="Enter password…" onkeydown="if(event.key==='Enter')submitLogin()" autofocus>
-      <div id="login-err" style="color:#8b1a1a;font-size:14px;margin-top:6px;font-family:'VT323',monospace"></div>
+      <div id="login-err" style="color:#8b1a1a;font-size:14px;margin-top:6px;font-family:'Pixelify Sans',monospace"></div>
       <div style="display:flex;gap:6px;margin-top:12px">
         <button class="win-btn" id="login-btn" onclick="submitLogin()">[ Login ]</button>
         <button class="win-btn" onclick="closeWindow('login')">[ Cancel ]</button>
       </div>
       <hr class="divider">
-      <div style="font-size:13px;color:var(--muted);font-family:'Courier Prime',monospace">Verified server-side. Wrong attempts are rate-limited.</div>
+      <div style="font-size:13px;color:var(--muted);font-family:'Pixelify Sans',monospace">Verified server-side. Wrong attempts are rate-limited.</div>
     </div>`;
     setTimeout(()=>document.getElementById('login-pass')?.focus(),100);
   }});
@@ -1078,10 +1079,10 @@ function renderFolderToolbar(){
       ${pubBtn}
       <button class="win-btn" onclick="exportData()" title="Download data.json (manual backup)">⬇ Export</button>
       <button class="win-btn" onclick="pullRemote()" title="Discard local draft and reload server data.json">↻ Pull</button>
-      <span style="font-size:13px;color:${draft?'#c87820':'var(--accent)'};font-family:'VT323',monospace;margin-left:6px">${draft?'● local draft — Publish to push live':'🔓 Admin mode'}</span>`;
+      <span style="font-size:13px;color:${draft?'#c87820':'var(--accent)'};font-family:'Pixelify Sans',monospace;margin-left:6px">${draft?'● local draft — Publish to push live':'🔓 Admin mode'}</span>`;
   } else {
     const hint = WORKER_URL ? '🔒 Read-only — click 🔒 GUEST to log in' : '🔒 Read-only';
-    tb.innerHTML = `<span style="font-size:14px;color:var(--muted);font-family:'VT323',monospace">${hint}</span>`;
+    tb.innerHTML = `<span style="font-size:14px;color:var(--muted);font-family:'Pixelify Sans',monospace">${hint}</span>`;
   }
 }
 
@@ -1105,7 +1106,7 @@ function renderFolderGrid(){
 // stay hidden until the admin approves them.
 function openGuestbook(){
   createWindow({id:'guestbook',title:'Guestbook',icon:'📬',width:420,height:540,statusText:'leave a note for the host',buildBody:inner=>{
-    inner.innerHTML=`<div class="window-body" id="gb-body"><div style="color:var(--muted);font-family:'VT323',monospace">Loading…</div></div>`;
+    inner.innerHTML=`<div class="window-body" id="gb-body"><div style="color:var(--muted);font-family:'Pixelify Sans',monospace">Loading…</div></div>`;
     loadGuestbook();
   }});
 }
@@ -1140,14 +1141,14 @@ function renderGuestbook(entries){
       <div class="gb-meta">— ${esc(e.name||'anon')} · ${new Date(e.ts).toLocaleDateString()}${pending?' · ⏳ pending':''}</div>
       ${ctrls}
     </div>`;
-  }).join('') : `<div style="color:var(--muted);font-style:italic;font-family:'Courier Prime',monospace;font-size:12px">No notes yet — be the first.</div>`;
+  }).join('') : `<div style="color:var(--muted);font-style:italic;font-family:'Pixelify Sans',monospace;font-size:12px">No notes yet — be the first.</div>`;
   el.innerHTML=`
     <div class="section-label" style="margin-bottom:6px">LEAVE A NOTE</div>
     <input id="gb-name" class="form-input" placeholder="your name (optional)" maxlength="40" style="margin-bottom:6px">
     <textarea id="gb-msg" class="form-input" rows="3" maxlength="280" placeholder="say hi…" style="resize:vertical;margin-bottom:6px"></textarea>
     <input id="gb-website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
     <button class="win-btn" id="gb-submit" onclick="submitGuestbook()">[ Post Note ]</button>
-    <div style="font-size:11px;color:var(--muted);font-family:'Courier Prime',monospace;margin-top:4px">Notes appear once the host approves them.</div>
+    <div style="font-size:11px;color:var(--muted);font-family:'Pixelify Sans',monospace;margin-top:4px">Notes appear once the host approves them.</div>
     <hr class="divider">
     <div class="section-label" style="margin-bottom:6px">NOTES${admin?' · admin sees pending':''}</div>
     <div>${cards}</div>`;
@@ -1217,7 +1218,7 @@ function renderPaperBody(p){
     <div style="display:flex;gap:6px;margin-bottom:10px">
       <input class="form-input" id="pdfurl-${p.id}" value="${esc(safeUrl)}" placeholder="https://arxiv.org/pdf/…" style="flex:1">
       <button class="win-btn" onclick="savePdfUrl('${p.id}')">[ Set ]</button>
-    </div>`:urlOk?`<div class="section-label">PDF</div><div style="font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted);margin-bottom:10px;word-break:break-all"><a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent)">${esc(safeUrl)}</a></div>`:''}
+    </div>`:urlOk?`<div class="section-label">PDF</div><div style="font-family:'Pixelify Sans',monospace;font-size:11px;color:var(--muted);margin-bottom:10px;word-break:break-all"><a href="${esc(safeUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent2)">${esc(safeUrl)}</a></div>`:''}
     <div class="section-label">Notes</div>
     ${isAdmin()?`
     <textarea class="notes-area" id="notes-${p.id}" placeholder="Write your thoughts…">${esc(p.notes||'')}</textarea>
@@ -1225,7 +1226,7 @@ function renderPaperBody(p){
       <button class="win-btn" onclick="saveNotes('${p.id}')">[ Save Notes ]</button>
       <button class="win-btn danger" onclick="deletePaper('${p.id}')">[ Delete ]</button>
     </div>`:
-    `<div style="font-family:'Courier Prime',monospace;font-size:13px;line-height:1.7;color:var(--text);background:var(--input-bg);border:1px solid #c8a86040;padding:8px 10px;min-height:60px;white-space:pre-wrap">${p.notes?esc(p.notes):'<span style="color:var(--muted);font-style:italic">No notes yet.</span>'}</div>`
+    `<div style="font-family:'Pixelify Sans',monospace;font-size:13px;line-height:1.7;color:var(--text);background:var(--input-bg);border:1px solid #c8a86040;padding:8px 10px;min-height:60px;white-space:pre-wrap">${p.notes?esc(p.notes):'<span style="color:var(--muted);font-style:italic">No notes yet.</span>'}</div>`
     }
   `;
   renderPdfPreview(p.pdfUrl, pdfBoxId);
@@ -1386,7 +1387,7 @@ delete prefs.barrel;
 function savePrefs(){ lsSet(PREFS_KEY, JSON.stringify(prefs)); }
 
 const THEMES = {
-  parchment:     {'--desk':'#09080a','--desk-line':'#131118','--win-bg':'#f3e8cc','--win-parch':'#ede0bc','--win-bdr':'#1a1008','--tb-from':'#1c120a','--tb-to':'#0e0a06','--tb-txt':'#e8c060','--btn':'#d8c8a0','--btn-hi':'#f0e4c0','--btn-sh':'#7a6030','--text':'#1e1408','--muted':'#5a4828','--accent':'#c87820','--input-bg':'#faf4e4','--bar':'#060508','--bar-txt':'#c8a848','--folder-bg':'#e8d8b0'},
+  parchment:     {'--desk':'#17110b','--desk-line':'#261d14','--win-bg':'#f3e8cc','--win-parch':'#ede0bc','--win-bdr':'#1a1008','--tb-from':'#1c120a','--tb-to':'#0e0a06','--tb-txt':'#e8c060','--btn':'#d8c8a0','--btn-hi':'#f0e4c0','--btn-sh':'#7a6030','--text':'#1e1408','--muted':'#5a4828','--accent':'#c87820','--input-bg':'#faf4e4','--bar':'#0e0a06','--bar-txt':'#c8a848','--folder-bg':'#e8d8b0'},
   phosphorGreen: {'--desk':'#000800','--desk-line':'#001400','--win-bg':'#001a00','--win-parch':'#002200','--win-bdr':'#00cc33','--tb-from':'#003300','--tb-to':'#001a00','--tb-txt':'#00ff41','--btn':'#004400','--btn-hi':'#006600','--btn-sh':'#00aa20','--text':'#00ff41','--muted':'#009920','--accent':'#00ff41','--input-bg':'#001200','--bar':'#000400','--bar-txt':'#00ff41','--folder-bg':'#001800'},
   phosphorAmber: {'--desk':'#0a0600','--desk-line':'#150c00','--win-bg':'#1c1000','--win-parch':'#221400','--win-bdr':'#cc8800','--tb-from':'#2a1800','--tb-to':'#1a0e00','--tb-txt':'#ffaa00','--btn':'#3a2200','--btn-hi':'#503000','--btn-sh':'#aa6600','--text':'#ffaa00','--muted':'#aa6600','--accent':'#ffaa00','--input-bg':'#130e00','--bar':'#050300','--bar-txt':'#ffaa00','--folder-bg':'#1a1000'},
   moonlight:     {'--desk':'#0f0e1a','--desk-line':'#1a1830','--win-bg':'#e8e4f8','--win-parch':'#ddd8f0','--win-bdr':'#2a2050','--tb-from':'#2a2050','--tb-to':'#1a1440','--tb-txt':'#c0a8f0','--btn':'#c0b8e0','--btn-hi':'#d8d0f0','--btn-sh':'#6050a0','--text':'#1a1440','--muted':'#6050a0','--accent':'#8060d0','--input-bg':'#f0eeff','--bar':'#0a0820','--bar-txt':'#c0a8f0','--folder-bg':'#dcd8ee'},
@@ -1406,6 +1407,8 @@ function applyTheme(name){
   const t = THEMES[name] || THEMES.parchment;
   const root = document.documentElement;
   Object.entries(t).forEach(([k,v])=>root.style.setProperty(k,v));
+  // Secondary accent: a teal "pop" only on parchment; other themes collapse to their own accent.
+  root.style.setProperty('--accent2', name==='parchment' ? '#1f7a8c' : (t['--accent']||'#1f7a8c'));
 }
 
 
@@ -1458,7 +1461,8 @@ function applyDeskPattern(name){
   } else if(name==='lines'){
     b.style.backgroundImage=`repeating-linear-gradient(to bottom,transparent 0px,transparent 5px,var(--desk-line) 5px,var(--desk-line) 6px)`;
   } else {
-    b.style.backgroundImage=''; // solid
+    // solid + gentle warm radial so the desktop has depth instead of flat black
+    b.style.backgroundImage='radial-gradient(ellipse 120% 95% at 50% 16%, rgba(214,170,92,0.07), transparent 72%)';
   }
 }
 
@@ -1514,7 +1518,7 @@ function openStickyEditor(){
       inner.innerHTML=`<div class="window-body">
         <div class="section-label" style="margin-bottom:8px">NOTE TEXT</div>
         <textarea class="form-input" id="sticky-textarea" rows="7"
-          style="width:100%;resize:vertical;font-family:'Courier Prime',monospace;font-size:13px;line-height:1.5"
+          style="width:100%;resize:vertical;font-family:'Pixelify Sans',monospace;font-size:13px;line-height:1.5"
           placeholder="Write a short note for your visitors…">${esc(stickyNote)}</textarea>
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="win-btn" onclick="saveStickyDraft()">[ Save Draft ]</button>
@@ -1523,7 +1527,7 @@ function openStickyEditor(){
             [ Clear ]
           </button>
         </div>
-        <div style="margin-top:8px;font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted)">
+        <div style="margin-top:8px;font-family:'Pixelify Sans',monospace;font-size:11px;color:var(--muted)">
           Publish via 🚀 Publish to make it visible to everyone.
         </div>
       </div>`;
@@ -1556,7 +1560,7 @@ function renderPrefsBody(){
           style="display:flex;align-items:center;gap:8px;padding:7px 10px;
           border:1px solid ${prefs.theme===k?'var(--accent)':'var(--btn-sh)'};
           background:${prefs.theme===k?'rgba(200,120,32,.13)':'transparent'};
-          cursor:pointer;font-family:'VT323',monospace;font-size:15px;color:var(--text)">
+          cursor:pointer;font-family:'Pixelify Sans',monospace;font-size:15px;color:var(--text)">
           <span style="width:20px;height:20px;background:${m.swatch};border:1px solid var(--btn-sh);display:inline-block;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)"></span>
           ${esc(m.label)}${prefs.theme===k?' ✓':''}
         </div>`).join('')}
@@ -1599,7 +1603,7 @@ function renderPrefsBody(){
       </button>
     </div>
     <hr class="divider" style="margin-top:14px">
-    <div style="margin-top:10px;font-family:'Courier Prime',monospace;font-size:11px;color:var(--muted)">
+    <div style="margin-top:10px;font-family:'Pixelify Sans',monospace;font-size:11px;color:var(--muted)">
       Preferences are saved in your browser. Right-click the desktop to reopen this window.
     </div>`;
 }
