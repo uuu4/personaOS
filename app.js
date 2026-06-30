@@ -615,6 +615,14 @@ function openAddPaper(){
   if(openWindows['add-paper']){bringToFront(openWindows['add-paper']);return;}
   createWindow({id:'add-paper',title:'Add New Paper',icon:'📄',width:420,height:520,statusText:'New entry',buildBody:inner=>{
     inner.innerHTML=`<div class="window-body">
+      <div class="form-row" style="background:var(--win-parch);border:1px solid #c8a86060;padding:7px 8px">
+        <label>⤓ Auto-fill from arXiv / DOI / link</label>
+        <div style="display:flex;gap:6px;margin-top:2px">
+          <input class="form-input" id="ap-fetch" placeholder="arxiv.org/abs/… · 10.1038/… · 2303.14307" style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();autofillPaper()}">
+          <button class="win-btn" id="ap-fetch-btn" onclick="autofillPaper()">[ Fetch ]</button>
+        </div>
+        <div id="ap-fetch-msg" style="font-size:12px;color:var(--muted);margin-top:3px;min-height:14px"></div>
+      </div>
       <div class="form-row"><label>Title *</label><input class="form-input" id="ap-title" type="text" placeholder="Full paper title…"></div>
       <div class="form-row"><label>Authors</label><input class="form-input" id="ap-authors" type="text" placeholder="Author, A., Author, B., …"></div>
       <div style="display:flex;gap:8px">
@@ -631,6 +639,26 @@ function openAddPaper(){
       </div>
     </div>`;
   }});
+}
+
+async function autofillPaper(){
+  const q=document.getElementById('ap-fetch').value.trim();
+  const msg=document.getElementById('ap-fetch-msg'), btn=document.getElementById('ap-fetch-btn');
+  if(!q){ msg.style.color='var(--muted)'; msg.textContent='Paste an arXiv link/id or a DOI first'; return; }
+  if(!WORKER_URL){ msg.style.color='#8b1a1a'; msg.textContent='Worker not configured'; return; }
+  btn.disabled=true; const old=btn.textContent; btn.textContent='[ … ]';
+  msg.style.color='var(--muted)'; msg.textContent='Fetching metadata…';
+  try{
+    const r=await fetch(WORKER_URL.replace(/\/$/,'')+'/meta?id='+encodeURIComponent(q));
+    const d=await r.json();
+    if(!r.ok||d.error){ msg.style.color='#8b1a1a'; msg.textContent=d.error||('Error '+r.status); return; }
+    const set=(id,v)=>{ const el=document.getElementById(id); if(el&&v) el.value=v; };
+    set('ap-title',d.title); set('ap-authors',d.authors); set('ap-year',d.year);
+    set('ap-venue',d.venue); set('ap-abstract',d.abstract); set('ap-pdfurl',d.pdfUrl);
+    const ic=document.getElementById('ap-icon'); if(ic&&(!ic.value||ic.value==='📄')) ic.value = d.venue==='arXiv'?'📃':'📄';
+    msg.style.color='var(--accent2)'; msg.textContent='Filled ✓ — review the fields, then add';
+  }catch(e){ msg.style.color='#8b1a1a'; msg.textContent='Network error — could not reach worker'; }
+  finally{ btn.disabled=false; btn.textContent=old; }
 }
 
 function submitAddPaper(){

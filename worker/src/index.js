@@ -69,6 +69,18 @@ export default {
       return paperPage(id, url.origin, cors);
     }
 
+    // ── GET /meta?id=… — arXiv/DOI metadata for Add Paper auto-fill ──
+    if (req.method === 'GET' && url.pathname === '/meta') {
+      const q = url.searchParams.get('id') || '';
+      const c = classifyRef(q);
+      if (!c) return json({ error: 'unrecognized — paste an arXiv link/id or a DOI' }, 400, cors);
+      try {
+        return c.type === 'arxiv' ? await fetchArxiv(c.id, cors) : await fetchDoi(c.id, cors);
+      } catch (e) {
+        return json({ error: 'fetch failed', detail: String(e.message || e) }, 502, cors);
+      }
+    }
+
     // ── Guestbook (Cloudflare KV — never committed to GitHub) ──
     if (url.pathname === '/guestbook') {
       if (req.method === 'GET') return guestbookList(env, cors, false);
@@ -172,6 +184,53 @@ async function getPapers() {
 
 function xesc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ── Metadata auto-fill (arXiv Atom + Crossref JSON) ──
+function classifyRef(raw) {
+  raw = (raw || '').trim();
+  let m = raw.match(/arxiv\.org\/(?:abs|pdf)\/([^\s?#]+?)(?:\.pdf)?(?:[?#].*)?$/i)
+       || raw.match(/^arxiv:\s*(\S+)/i)
+       || raw.match(/^(\d{4}\.\d{4,5})(v\d+)?$/i);
+  if (m) return { type: 'arxiv', id: m[1] };
+  const d = raw.match(/10\.\d{4,9}\/[^\s"'<>]+/i);
+  if (d) return { type: 'doi', id: d[0].replace(/[).,;]+$/, '') };
+  return null;
+}
+function xdecode(s) {
+  return String(s || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&');
+}
+async function fetchArxiv(id, cors) {
+  const r = await fetch(`https://export.arxiv.org/api/query?id_list=${encodeURIComponent(id)}`, { headers: { 'User-Agent': 'personaos-worker' } });
+  const xml = await r.text();
+  const entry = (xml.split('<entry>')[1] || '');
+  if (!entry || /<title>Error<\/title>/.test(xml)) return json({ error: 'arXiv id not found' }, 404, cors);
+  const pick = tag => { const m = entry.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, 'i')); return m ? xdecode(m[1].trim().replace(/\s+/g, ' ')) : ''; };
+  const authors = [...entry.matchAll(/<author>\s*<name>([\s\S]*?)<\/name>/gi)].map(a => xdecode(a[1].trim()));
+  const pdf = (entry.match(/<link[^>]*title="pdf"[^>]*href="([^"]+)"/i) || [])[1] || `https://arxiv.org/pdf/${id}`;
+  return json({
+    title: pick('title'),
+    authors: authors.join(', '),
+    year: (pick('published').match(/^(\d{4})/) || [])[1] || '',
+    venue: 'arXiv',
+    abstract: pick('summary'),
+    pdfUrl: pdf
+  }, 200, cors);
+}
+async function fetchDoi(doi, cors) {
+  const r = await fetch(`https://api.crossref.org/works/${encodeURIComponent(doi)}`, { headers: { 'User-Agent': 'personaos-worker (mailto:hello@internetpersona.net)' } });
+  if (!r.ok) return json({ error: 'DOI not found' }, 404, cors);
+  const m = (await r.json()).message || {};
+  const dateParts = (m['published-print'] || m['published-online'] || m['issued'] || {})['date-parts'];
+  return json({
+    title: (m.title && m.title[0]) || '',
+    authors: (m.author || []).map(a => [a.given, a.family].filter(Boolean).join(' ')).join(', '),
+    year: (dateParts && dateParts[0] && dateParts[0][0]) || '',
+    venue: (m['container-title'] && m['container-title'][0]) || m.publisher || '',
+    abstract: (m.abstract || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim(),
+    pdfUrl: `https://doi.org/${doi}`
+  }, 200, cors);
 }
 
 function wrapText(s, max, maxLines) {
