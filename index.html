@@ -635,6 +635,10 @@ body.hacker #sticky-note::before { background:#003a00; border-bottom-color:#00aa
     <div class="icon-img">📬</div>
     <div class="icon-label">Guestbook</div>
   </div>
+  <div class="d-icon" id="icon-terminal" ondblclick="openTerminal()" onclick="selectIcon('icon-terminal')">
+    <div class="icon-img">🖥️</div>
+    <div class="icon-label">Terminal</div>
+  </div>
   <div class="d-icon secret" id="icon-classified" ondblclick="openClassified()" onclick="selectIcon('icon-classified')">
     <div class="icon-img">🔓</div>
     <div class="icon-label">root</div>
@@ -1875,6 +1879,8 @@ license: not much of one`,
       }
     });
   }
+
+  window.openTerminal = openTerminal; // desktop icon / start menu entry point
 
   document.addEventListener('keydown', e=>{
     if(e.key==='`'&&!e.ctrlKey&&!e.metaKey){
