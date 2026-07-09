@@ -41,6 +41,22 @@
     <div class="icon-img">🖥️</div>
     <div class="icon-label">Terminal</div>
   </div>
+  <div class="d-icon" id="icon-calc" ondblclick="openCalculator()" onclick="selectIcon('icon-calc')">
+    <div class="icon-img">🧮</div>
+    <div class="icon-label">Calculator</div>
+  </div>
+  <div class="d-icon" id="icon-calendar" ondblclick="openCalendar()" onclick="selectIcon('icon-calendar')">
+    <div class="icon-img">📅</div>
+    <div class="icon-label">Calendar</div>
+  </div>
+  <div class="d-icon" id="icon-notepad" ondblclick="openNotepad()" onclick="selectIcon('icon-notepad')">
+    <div class="icon-img">📝</div>
+    <div class="icon-label">Notepad</div>
+  </div>
+  <div class="d-icon" id="icon-files" ondblclick="openFiles()" onclick="selectIcon('icon-files')">
+    <div class="icon-img">🗂️</div>
+    <div class="icon-label">Files (C:)</div>
+  </div>
   <div class="d-icon secret" id="icon-classified" ondblclick="openClassified()" onclick="selectIcon('icon-classified')">
     <div class="icon-img">🔓</div>
     <div class="icon-label">root</div>
@@ -67,6 +83,10 @@
     <div class="menu-item" onclick="openAbout();closeStartMenu()">🪪 About Me</div>
     <div class="menu-item" onclick="openGuestbook();closeStartMenu()">📬 Guestbook</div>
     <div class="menu-item" onclick="openAddPaper();closeStartMenu()">📄 Add Paper</div>
+    <div class="menu-item" onclick="openCalculator();closeStartMenu()">🧮 Calculator</div>
+    <div class="menu-item" onclick="openCalendar();closeStartMenu()">📅 Calendar</div>
+    <div class="menu-item" onclick="openNotepad();closeStartMenu()">📝 Notepad</div>
+    <div class="menu-item" onclick="openFiles();closeStartMenu()">🗂️ Files (C:)</div>
     <div class="menu-item" onclick="openPreferences();closeStartMenu()">⚙ Preferences</div>
   </div>
 </div>

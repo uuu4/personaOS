@@ -1046,6 +1046,138 @@ function renderPrefsBody(){
   resetIdle();
 })();
 
+// ── MINI APPS ─────────────────────────────────────────────
+// Classic accessories. Same window engine, different content — no new plumbing.
+
+// Calculator
+function openCalculator(){
+  createWindow({id:'calc',title:'Calculator',icon:'🧮',width:240,height:320,statusText:'',buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body" style="display:flex;flex-direction:column;gap:6px">
+      <input id="calc-display" class="form-input" style="text-align:right;font-size:20px;height:36px" value="0" readonly>
+      <div class="calc-grid">
+        ${['C','(',')','/','7','8','9','*','4','5','6','-','1','2','3','+','0','.','⌫','='].map(k=>`<button class="win-btn calc-key" data-k="${k}">${k}</button>`).join('')}
+      </div>
+    </div>`;
+    const d=inner.querySelector('#calc-display');
+    inner.querySelectorAll('.calc-key').forEach(b=>b.onclick=()=>calcKey(d,b.dataset.k));
+  }});
+}
+function calcKey(d,k){
+  if(k==='C'){ d.value='0'; return; }
+  if(k==='⌫'){ d.value=d.value.length>1?d.value.slice(0,-1):'0'; return; }
+  if(k==='='){
+    try{
+      const expr=d.value.replace(/[^0-9+\-*/.() ]/g,'');       // arithmetic chars only
+      const r=Function('"use strict";return('+expr+')')();
+      d.value=(r==null||!isFinite(r))?'Error':String(+(+r).toFixed(10));
+    }catch(e){ d.value='Error'; }
+    return;
+  }
+  if(d.value==='0'||d.value==='Error') d.value = /[0-9.(]/.test(k)? k : '0'+k;
+  else d.value+=k;
+}
+
+// Calendar
+let _calDate=new Date();
+function openCalendar(){
+  _calDate=new Date();
+  createWindow({id:'calendar',title:'Calendar',icon:'📅',width:280,height:290,statusText:'',buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body" id="cal-body"></div>`; renderCalendar();
+  }});
+}
+function renderCalendar(){
+  const el=document.getElementById('cal-body'); if(!el)return;
+  const y=_calDate.getFullYear(), m=_calDate.getMonth(), t=new Date();
+  const first=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate();
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  let cells='';
+  for(let i=0;i<first;i++) cells+='<div class="cal-cell"></div>';
+  for(let d=1;d<=days;d++){ const today=d===t.getDate()&&m===t.getMonth()&&y===t.getFullYear(); cells+=`<div class="cal-cell${today?' cal-today':''}">${d}</div>`; }
+  el.innerHTML=`
+    <div class="cal-head">
+      <button class="win-btn" onclick="calNav(-1)">‹</button>
+      <span>${months[m]} ${y}</span>
+      <button class="win-btn" onclick="calNav(1)">›</button>
+    </div>
+    <div class="cal-grid">${['Su','Mo','Tu','We','Th','Fr','Sa'].map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells}</div>`;
+}
+function calNav(delta){ _calDate.setMonth(_calDate.getMonth()+delta); renderCalendar(); }
+
+// Notepad (autosaves to localStorage)
+function openNotepad(){
+  createWindow({id:'notepad',title:'Notepad',icon:'📝',width:380,height:340,statusText:'Autosaves in your browser',buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body" style="padding:0;display:flex;flex-direction:column">
+      <textarea id="notepad-area" class="notepad-area" placeholder="Type here…">${esc(lsGet('pl-notepad')||'')}</textarea>
+    </div>`;
+    const ta=inner.querySelector('#notepad-area');
+    ta.addEventListener('input',()=>lsSet('pl-notepad',ta.value));
+  }});
+}
+
+// File Explorer — browse the repo tree like a C:\ drive (GitHub API, public, no auth)
+let _fsTree=null, _fsPath='';
+function openFiles(){
+  createWindow({id:'files',title:'C:\\ — Files',icon:'🗂️',width:460,height:380,statusText:'uuu4/personaOS',buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body" style="padding:0;display:flex;flex-direction:column">
+      <div id="fs-path" class="fs-path"></div>
+      <div id="fs-list" class="fs-list"><div class="fs-loading">Loading repo…</div></div>
+    </div>`;
+    loadFS();
+  }});
+}
+async function loadFS(){
+  const list=document.getElementById('fs-list'); if(!list)return;
+  if(!_fsTree){
+    try{
+      const d=await (await fetch('https://api.github.com/repos/uuu4/personaOS/git/trees/main?recursive=1')).json();
+      if(!Array.isArray(d.tree)) throw 0;
+      _fsTree=d.tree.map(t=>({path:t.path,type:t.type,size:t.size}));
+    }catch(e){ list.innerHTML='<div class="fs-loading">Could not load repo (rate-limited?).</div>'; return; }
+  }
+  renderFS();
+}
+function renderFS(){
+  const list=document.getElementById('fs-list'), pathEl=document.getElementById('fs-path'); if(!list)return;
+  const prefix=_fsPath?_fsPath+'/':'';
+  const seen=new Set(), items=[];
+  _fsTree.forEach(t=>{
+    if(!t.path.startsWith(prefix)) return;
+    const rest=t.path.slice(prefix.length); if(!rest) return;
+    if(rest.includes('/')){ const seg=rest.split('/')[0], key='d:'+seg; if(!seen.has(key)){ seen.add(key); items.push({name:seg,type:'tree',path:prefix+seg}); } }
+    else { const key=(t.type==='tree'?'d:':'f:')+rest; if(!seen.has(key)){ seen.add(key); items.push({name:rest,type:t.type,size:t.size,path:t.path}); } }
+  });
+  items.sort((a,b)=> (a.type===b.type?0:a.type==='tree'?-1:1) || a.name.localeCompare(b.name));
+  pathEl.textContent='C:\\'+_fsPath.replace(/\//g,'\\');
+  const up=_fsPath?`<div class="fs-item" ondblclick="fsUp()"><span class="fs-ic">📁</span> ..</div>`:'';
+  list.innerHTML=up+items.map(it=>`<div class="fs-item" ondblclick="${it.type==='tree'?`fsCd('${it.path}')`:`fsOpen('${it.path}')`}">
+    <span class="fs-ic">${it.type==='tree'?'📁':fileIcon(it.name)}</span> ${esc(it.name)}${it.size?`<span class="fs-size">${fmtSize(it.size)}</span>`:''}</div>`).join('')
+    || '<div class="fs-loading">(empty)</div>';
+}
+function fsCd(p){ _fsPath=p; renderFS(); }
+function fsUp(){ _fsPath=_fsPath.split('/').slice(0,-1).join('/'); renderFS(); }
+function fileIcon(n){
+  if(/\.(png|jpg|jpeg|gif|svg|ico|webp)$/i.test(n))return '🖼️';
+  if(/\.(js|mjs)$/i.test(n))return '📜'; if(/\.json$/i.test(n))return '🗃️';
+  if(/\.css$/i.test(n))return '🎨'; if(/\.html?$/i.test(n))return '🌐';
+  if(/\.(md|txt)$/i.test(n))return '📄'; if(/\.(toml|yml|yaml|lock)$/i.test(n))return '⚙️';
+  return '📄';
+}
+function fmtSize(b){ return b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; }
+function fsOpen(path){
+  const id='file-'+path.replace(/[^a-z0-9]/gi,'-');
+  const isImg=/\.(png|jpg|jpeg|gif|svg|ico|webp)$/i.test(path);
+  const raw='https://raw.githubusercontent.com/uuu4/personaOS/main/'+path.split('/').map(encodeURIComponent).join('/');
+  createWindow({id,title:path,icon:fileIcon(path),width:540,height:440,statusText:path,buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body" id="${id}-body"><div class="fs-loading">Loading…</div></div>`;
+    const body=document.getElementById(id+'-body');
+    if(isImg){ body.innerHTML=`<img src="${esc(raw)}" style="max-width:100%;height:auto" alt="${esc(path)}">`; return; }
+    fetch(raw).then(r=>r.text()).then(txt=>{
+      if(txt.length>200000) txt=txt.slice(0,200000)+'\n\n… (truncated)';
+      body.innerHTML=`<pre class="fs-code">${esc(txt)}</pre>`;
+    }).catch(()=>{ body.innerHTML='<div class="fs-loading">Could not load file.</div>'; });
+  }});
+}
+
 // ── HACKER MODE ───────────────────────────────────────────
 // A reskin, not a second OS: toggles a body class + reuses createWindow.
 const ACCESS_GRANTED = `<span class="t-ok">
@@ -1123,35 +1255,15 @@ function hackerSound(){
     o.connect(g); g.connect(_sfx.destination); o.start(t); o.stop(t+0.09);
   });
 }
-// CRTFilter (WebGL) is lazy-loaded only when the easter egg fires, and only
-// wraps the matrix <canvas> — a real canvas, so it's a cheap GPU shader, not a
-// DOM rasterization. Normal visitors never download it.
-let _crt = null, _crtClass = null;
-async function ensureCRTClass(){
-  if(_crtClass) return _crtClass;
-  try { _crtClass = (await import('./CRTFilter.js')).CRTFilterWebGL; } catch(e){ _crtClass = null; }
-  return _crtClass;
-}
-async function activateHacker(){
+function activateHacker(){
   if(document.body.classList.contains('hacker')) return;
   document.body.classList.add('hacker');
   startMatrix();
   hackerSound();
   toast('⛓ ACCESS GRANTED');
-  try {
-    const CRT = await ensureCRTClass();
-    const src = document.getElementById('matrix');
-    if(CRT && src && document.body.classList.contains('hacker')){
-      if(!_crt) _crt = new CRT(src, { curvature:0.009, barrelDistortion:0.005, scanlineIntensity:0.5,
-        chromaticAberration:0.0009, glowBloom:0.0018, verticalJitter:0.001, flicker:0.02,
-        signalLoss:0.02, dotMask:true, brightness:1.0, contrast:1.05, desaturation:0.1 });
-      if(_crt.gl){ _crt.start(); Object.assign(_crt.glcanvas.style,{position:'fixed',inset:'0',zIndex:'0',pointerEvents:'none'}); }
-    }
-  } catch(e){ /* WebGL unavailable → plain matrix, no worries */ }
 }
 function deactivateHacker(){
   document.body.classList.remove('hacker'); // matrix loop self-stops
-  if(_crt){ try { _crt.stop(); } catch(e){} } // restores the plain #matrix canvas
   closeWindow('classified');
   toast('systems re-secured');
 }
