@@ -964,7 +964,7 @@ function renderPrefsBody(){
     <hr class="divider" style="margin-top:12px">
     <div class="section-label" style="margin:12px 0 8px">DISPLAY</div>
     <div class="form-row" style="display:flex;align-items:center;gap:12px">
-      <label style="margin:0;flex:1">CRT Scanlines</label>
+      <label style="margin:0;flex:1">CRT Effect</label>
       <button class="win-btn" onclick="prefs.scanlines=!prefs.scanlines;applyScanlines(prefs.scanlines);savePrefs();renderPrefsBody()"
         style="${prefs.scanlines?'outline:1px solid var(--accent);outline-offset:1px':''}">
         [ ${prefs.scanlines?'ON':'OFF'} ]
@@ -1123,15 +1123,35 @@ function hackerSound(){
     o.connect(g); g.connect(_sfx.destination); o.start(t); o.stop(t+0.09);
   });
 }
-function activateHacker(){
+// CRTFilter (WebGL) is lazy-loaded only when the easter egg fires, and only
+// wraps the matrix <canvas> — a real canvas, so it's a cheap GPU shader, not a
+// DOM rasterization. Normal visitors never download it.
+let _crt = null, _crtClass = null;
+async function ensureCRTClass(){
+  if(_crtClass) return _crtClass;
+  try { _crtClass = (await import('./CRTFilter.js')).CRTFilterWebGL; } catch(e){ _crtClass = null; }
+  return _crtClass;
+}
+async function activateHacker(){
   if(document.body.classList.contains('hacker')) return;
   document.body.classList.add('hacker');
   startMatrix();
   hackerSound();
   toast('⛓ ACCESS GRANTED');
+  try {
+    const CRT = await ensureCRTClass();
+    const src = document.getElementById('matrix');
+    if(CRT && src && document.body.classList.contains('hacker')){
+      if(!_crt) _crt = new CRT(src, { curvature:0.009, barrelDistortion:0.005, scanlineIntensity:0.5,
+        chromaticAberration:0.0009, glowBloom:0.0018, verticalJitter:0.001, flicker:0.02,
+        signalLoss:0.02, dotMask:true, brightness:1.0, contrast:1.05, desaturation:0.1 });
+      if(_crt.gl){ _crt.start(); Object.assign(_crt.glcanvas.style,{position:'fixed',inset:'0',zIndex:'0',pointerEvents:'none'}); }
+    }
+  } catch(e){ /* WebGL unavailable → plain matrix, no worries */ }
 }
 function deactivateHacker(){
   document.body.classList.remove('hacker'); // matrix loop self-stops
+  if(_crt){ try { _crt.stop(); } catch(e){} } // restores the plain #matrix canvas
   closeWindow('classified');
   toast('systems re-secured');
 }
