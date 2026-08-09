@@ -106,15 +106,16 @@ async function publishToWorker(){
     const r = await fetch(WORKER_URL.replace(/\/$/,'') + '/publish', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ password: pass, data: { papers, cv, note: stickyNote }, message: msg })
+      body: JSON.stringify({ password: pass, data: { papers, cv, note: stickyNote, readingList }, message: msg })
     });
     if(r.ok){
       // Clear local draft — the commit IS the published state.
       // Don't re-fetch data.json: GitHub Pages takes 30-90 sec to redeploy,
       // so bootData() would pull stale remote and clobber in-memory cv/papers.
-      lsRemove(STORE_KEY); lsRemove(CV_KEY); lsRemove(NOTE_KEY);
+      lsRemove(STORE_KEY); lsRemove(CV_KEY); lsRemove(NOTE_KEY); lsRemove(RL_KEY);
       renderFolderGrid(); renderFolderToolbar(); refreshOpenPapers();
       if(document.getElementById('cv-body')) renderCV();
+      if(document.getElementById('rl-body')) renderReadingList();
       renderStickyNote();
       toast('Published ✓ — live in ~30 sec');
     } else if(r.status===401){
@@ -142,7 +143,7 @@ if (typeof pdfjsLib !== 'undefined') {
 }
 
 // ── DATA ─────────────────────────────────────────────────
-const STORE_KEY = 'pl-v4', CV_KEY = 'pl-cv-v4', NOTE_KEY = 'pl-note-v4';
+const STORE_KEY = 'pl-v4', CV_KEY = 'pl-cv-v4', NOTE_KEY = 'pl-note-v4', RL_KEY = 'pl-rl-v1';
 
 const DEFAULT_PAPERS = [
   {id:'p1',title:'Attention Is All You Need',authors:'Vaswani, A., Shazeer, N., Parmar, N., et al.',year:2017,venue:'NeurIPS',tags:['transformers','attention','NLP'],abstract:'The dominant sequence transduction models are based on complex recurrent or convolutional neural networks. We propose the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.',rating:5,notes:'Revolutionary paper. The multi-head attention mechanism is elegant. Positional encoding section needs re-reading.',icon:'🔬',pdfUrl:''}
@@ -157,6 +158,7 @@ const DEFAULT_CV = {
 let papers = [];
 let cv = { ...DEFAULT_CV };
 let stickyNote = '';       // plain text, published in data.json
+let readingList = [];      // [{id,title,link}], published in data.json
 let remoteSnapshot = null;
 
 async function loadRemoteData(){
@@ -171,24 +173,27 @@ async function bootData(){
   remoteSnapshot = await loadRemoteData();
   const tryParse = k => { try { return JSON.parse(lsGet(k)||'null'); } catch(e){ return null; } };
   if (isAdmin()) {
-    papers     = tryParse(STORE_KEY) || (remoteSnapshot && remoteSnapshot.papers) || DEFAULT_PAPERS;
-    cv         = tryParse(CV_KEY)    || (remoteSnapshot && remoteSnapshot.cv)     || { ...DEFAULT_CV };
-    stickyNote = tryParse(NOTE_KEY)  ?? (remoteSnapshot && remoteSnapshot.note)   ?? '';
+    papers      = tryParse(STORE_KEY) || (remoteSnapshot && remoteSnapshot.papers)      || DEFAULT_PAPERS;
+    cv          = tryParse(CV_KEY)    || (remoteSnapshot && remoteSnapshot.cv)          || { ...DEFAULT_CV };
+    stickyNote  = tryParse(NOTE_KEY)  ?? (remoteSnapshot && remoteSnapshot.note)        ?? '';
+    readingList = tryParse(RL_KEY)    || (remoteSnapshot && remoteSnapshot.readingList) || [];
   } else {
-    papers     = (remoteSnapshot && remoteSnapshot.papers) || DEFAULT_PAPERS;
-    cv         = (remoteSnapshot && remoteSnapshot.cv)     || { ...DEFAULT_CV };
-    stickyNote = (remoteSnapshot && remoteSnapshot.note)   || '';
+    papers      = (remoteSnapshot && remoteSnapshot.papers)      || DEFAULT_PAPERS;
+    cv          = (remoteSnapshot && remoteSnapshot.cv)          || { ...DEFAULT_CV };
+    stickyNote  = (remoteSnapshot && remoteSnapshot.note)        || '';
+    readingList = (remoteSnapshot && remoteSnapshot.readingList) || [];
   }
   renderStickyNote();
 }
 
 // Visitors don't write to localStorage. Only admin drafts persist.
-function savePapers(){ if(isAdmin()) lsSet(STORE_KEY, JSON.stringify(papers)); }
-function saveCV()    { if(isAdmin()) lsSet(CV_KEY,    JSON.stringify(cv)); }
-function saveNote()  { if(isAdmin()) lsSet(NOTE_KEY,  JSON.stringify(stickyNote)); }
+function savePapers()      { if(isAdmin()) lsSet(STORE_KEY, JSON.stringify(papers)); }
+function saveCV()          { if(isAdmin()) lsSet(CV_KEY,    JSON.stringify(cv)); }
+function saveNote()        { if(isAdmin()) lsSet(NOTE_KEY,  JSON.stringify(stickyNote)); }
+function saveReadingList() { if(isAdmin()) lsSet(RL_KEY,    JSON.stringify(readingList)); }
 
 function exportData(){
-  const payload = { papers, cv, exportedAt: new Date().toISOString() };
+  const payload = { papers, cv, readingList, exportedAt: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -200,15 +205,16 @@ function exportData(){
 
 async function pullRemote(){
   if(!confirm('Discard your local draft and pull data.json from the server?')) return;
-  lsRemove(STORE_KEY); lsRemove(CV_KEY);
+  lsRemove(STORE_KEY); lsRemove(CV_KEY); lsRemove(RL_KEY);
   await bootData();
   renderFolderGrid(); renderFolderToolbar(); refreshOpenPapers();
   if(document.getElementById('cv-body')) renderCV();
+  if(document.getElementById('rl-body')) renderReadingList();
   const fw = openWindows['reviews']; if(fw) fw.querySelector('.window-statusbar').textContent=`${papers.length} papers · double-click to open`;
   toast(remoteSnapshot ? 'Pulled remote ✓' : 'No data.json on server — using defaults');
 }
 
-function hasLocalDraft(){ return !!(lsGet(STORE_KEY) || lsGet(CV_KEY)); }
+function hasLocalDraft(){ return !!(lsGet(STORE_KEY) || lsGet(CV_KEY) || lsGet(RL_KEY)); }
 
 // ── TAG COLORS ────────────────────────────────────────────
 const TAG_PALETTE = [
@@ -679,6 +685,52 @@ function submitAddPaper(){
   const fw=openWindows['reviews'];if(fw)fw.querySelector('.window-statusbar').textContent=`${papers.length} papers · double-click to open`;
   closeWindow('add-paper');toast('Paper added!');
   setTimeout(()=>openPaper(id),200);
+}
+
+// ── READING LIST ──────────────────────────────────────────
+// A "to-read" queue, separate from Reviews (already-read/rated papers).
+function openReadingList(){
+  createWindow({id:'reading-list',title:'Reading List',icon:'📚',width:400,height:460,statusText:`${readingList.length} queued`,buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body" id="rl-body"></div>`;
+    renderReadingList();
+  }});
+}
+function renderReadingList(){
+  const el=document.getElementById('rl-body'); if(!el) return;
+  const admin=isAdmin();
+  const addForm = admin ? `
+    <div class="form-row"><label>Title *</label><input class="form-input" id="rl-title" placeholder="What to read next…" onkeydown="if(event.key==='Enter'){event.preventDefault();addReadingItem()}"></div>
+    <div class="form-row"><label>Link (optional)</label><input class="form-input" id="rl-link" type="url" placeholder="https://…"></div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="win-btn" onclick="addReadingItem()">[ Add to Queue ]</button>
+      ${WORKER_URL?`<button class="win-btn" onclick="publishToWorker()" title="Commit data.json via worker">🚀 Publish</button>`:''}
+    </div>
+    <hr class="divider">` : '';
+  const items = readingList.length ? readingList.map(it=>`
+    <div class="rl-item">
+      <span class="rl-title">${it.link?`<a href="${esc(it.link)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a>`:esc(it.title)}</span>
+      ${admin?`<button class="win-btn danger" style="font-size:11px;padding:0 6px" onclick="deleteReadingItem('${it.id}')">delete</button>`:''}
+    </div>`).join('') : `<div style="color:var(--muted);font-style:italic;font-family:'Pixelify Sans',monospace;font-size:12px">Nothing queued yet.</div>`;
+  el.innerHTML = `
+    ${!admin?`<div class="readonly-notice">🔒 View only${WORKER_URL?' — click 🔒 GUEST to log in':''}</div>`:''}
+    ${addForm}
+    <div class="section-label" style="margin-bottom:6px">QUEUE</div>
+    <div>${items}</div>`;
+}
+function addReadingItem(){
+  const titleEl=document.getElementById('rl-title'); if(!titleEl) return;
+  const title=titleEl.value.trim();
+  if(!title){ toast('Title is required!'); return; }
+  const link=document.getElementById('rl-link').value.trim();
+  readingList.push({id:'r'+Date.now(), title, link});
+  saveReadingList(); renderReadingList();
+  const w=openWindows['reading-list']; if(w) w.querySelector('.window-statusbar').textContent=`${readingList.length} queued`;
+  toast('Added to reading list ✓');
+}
+function deleteReadingItem(id){
+  if(!confirm('Remove this item?'))return;
+  readingList=readingList.filter(x=>x.id!==id); saveReadingList(); renderReadingList();
+  const w=openWindows['reading-list']; if(w) w.querySelector('.window-statusbar').textContent=`${readingList.length} queued`;
 }
 
 // ── ABOUT / CV ────────────────────────────────────────────
