@@ -26,31 +26,59 @@
 
 <div id="desktop">
   <div class="d-icon" id="icon-reviews" ondblclick="openReviews()" onclick="selectIcon('icon-reviews')">
-    <div class="icon-img">📁</div>
+    <div class="icon-img"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
+      <rect x="2" y="3" width="6" height="2" fill="#c8a860"/>
+      <rect x="2" y="5" width="12" height="8" fill="#e8d8b0"/>
+      <rect x="3" y="7" width="10" height="4" fill="#faf4e4"/>
+      <rect x="2" y="3" width="6" height="2" fill="none" stroke="#1a1008" stroke-width="0.9"/>
+      <rect x="2" y="5" width="12" height="8" fill="none" stroke="#1a1008" stroke-width="0.9"/>
+    </svg></div>
     <div class="icon-label">Reviews</div>
   </div>
   <div class="d-icon" id="icon-about" ondblclick="openAbout()" onclick="selectIcon('icon-about')">
-    <div class="icon-img">🪪</div>
+    <div class="icon-img"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
+      <rect x="2" y="2" width="12" height="12" fill="#ede0bc" stroke="#1a1008" stroke-width="0.9"/>
+      <rect x="4" y="4" width="4" height="4" fill="#1f7a8c" stroke="#1a1008" stroke-width="0.6"/>
+      <rect x="9" y="5" width="5" height="1" fill="#5a4828"/>
+      <rect x="9" y="7" width="5" height="1" fill="#5a4828"/>
+      <rect x="4" y="10" width="8" height="1.5" fill="#c87820"/>
+    </svg></div>
     <div class="icon-label">About Me</div>
   </div>
   <div class="d-icon" id="icon-guestbook" ondblclick="openGuestbook()" onclick="selectIcon('icon-guestbook')">
-    <div class="icon-img">📬</div>
+    <div class="icon-img"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
+      <rect x="1" y="4" width="14" height="9" fill="#ede0bc" stroke="#1a1008" stroke-width="0.9"/>
+      <polygon points="1,4 8,9.5 15,4" fill="none" stroke="#1a1008" stroke-width="0.9" stroke-linejoin="round"/>
+      <rect x="7" y="10" width="2" height="2" fill="#c87820"/>
+    </svg></div>
     <div class="icon-label">Guestbook</div>
   </div>
   <div class="d-icon" id="icon-reading" ondblclick="openReadingList()" onclick="selectIcon('icon-reading')">
-    <div class="icon-img">📚</div>
+    <div class="icon-img"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
+      <rect x="2" y="10" width="12" height="3" fill="#c87820" stroke="#1a1008" stroke-width="0.7"/>
+      <rect x="3" y="6.5" width="10" height="3" fill="#1f7a8c" stroke="#1a1008" stroke-width="0.7"/>
+      <rect x="4" y="3" width="8" height="3" fill="#e8d8b0" stroke="#1a1008" stroke-width="0.7"/>
+    </svg></div>
     <div class="icon-label">Reading List</div>
   </div>
   <div class="d-icon" id="icon-terminal" ondblclick="openTerminal()" onclick="selectIcon('icon-terminal')">
-    <div class="icon-img">🖥️</div>
+    <div class="icon-img"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
+      <rect x="2" y="2" width="12" height="9" fill="#1a1008"/>
+      <rect x="3" y="3" width="10" height="7" fill="#1f7a8c"/>
+      <rect x="4" y="4.5" width="4" height="1" fill="#39ff14"/>
+      <rect x="6" y="11" width="4" height="2" fill="#5a4828"/>
+      <rect x="4" y="13" width="8" height="1" fill="#5a4828"/>
+    </svg></div>
     <div class="icon-label">Terminal</div>
   </div>
-  <div class="d-icon" id="icon-files" ondblclick="openFiles()" onclick="selectIcon('icon-files')">
-    <div class="icon-img">🗂️</div>
-    <div class="icon-label">Files (C:)</div>
-  </div>
   <div class="d-icon secret" id="icon-classified" ondblclick="openClassified()" onclick="selectIcon('icon-classified')">
-    <div class="icon-img">🔓</div>
+    <div class="icon-img"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
+      <rect x="4" y="8" width="8" height="6" fill="#c87820" stroke="#1a1008" stroke-width="0.9"/>
+      <rect x="7" y="10" width="2" height="2" fill="#1a1008"/>
+      <rect x="5" y="3" width="2" height="4" fill="#c8b070" stroke="#1a1008" stroke-width="0.7"/>
+      <rect x="7" y="3" width="5" height="2" fill="#c8b070" stroke="#1a1008" stroke-width="0.7"/>
+      <rect x="10" y="3" width="2" height="3" fill="#c8b070" stroke="#1a1008" stroke-width="0.7"/>
+    </svg></div>
     <div class="icon-label">root</div>
   </div>
 </div>
@@ -76,7 +104,6 @@
     <div class="menu-item" onclick="openGuestbook();closeStartMenu()">📬 Guestbook</div>
     <div class="menu-item" onclick="openReadingList();closeStartMenu()">📚 Reading List</div>
     <div class="menu-item" onclick="openAddPaper();closeStartMenu()">📄 Add Paper</div>
-    <div class="menu-item" onclick="openFiles();closeStartMenu()">🗂️ Files (C:)</div>
     <div class="menu-item" onclick="openPreferences();closeStartMenu()">⚙ Preferences</div>
   </div>
 </div>
