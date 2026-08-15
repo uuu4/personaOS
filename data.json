@@ -101,6 +101,37 @@
     "website": "internetpersona.net",
     "interests": "quantum computing,deep learning,machine learning,competitive programming"
   },
-  "note": "personaOS v1.1\ncreated by github.com/uuu4\n\nI will be posting announcements here :)\n\nedit:  NEED PI FOR PHD ASAP",
-  "readingList": []
+  "note": "personaOS v1.1\ncreated by github.com/uuu4\nI will be posting announcements here :)\n\nedit:  NEED PI FOR PHD ASAP\n\n",
+  "readingList": [
+    {
+      "id": "r1786827453371",
+      "title": "bird by bird",
+      "link": "https://www.amazon.com.tr/Bird-Instructions-Writing-Life/dp/0385480016/ref=sr_1_1?adgrpid=127053892712&dib=eyJ2IjoiMSJ9.XX2kyvUxSkaOSsrTrlzSuOTxGi4k7drjot0UwbqEsXQJQNuyydytPXVqrlRZGV5mnwefs-Pgzr21Zy-oWkS9UeyyV07OJeIh5Y8JMmNpoRV-1gL0e2BOhzQAxJ1Kc4sxl6BmmikOjKmeNr3vZb9uAzxVsoCK_cQrfHqaIc2-R_NgVU_wy5Zp5Ewg6XtqtOvinL1wOOjoUGPz2fYosMac_9QYn6yxndta_dayfivXEQOvTwy7Q4aZ4serqEyO5593UkQLAeiuXwW_3TDHY6yRUSNNQMr-_MUu4AUyOPZJ__4.V1ZJp46ophXpG-r6bu72DN6T6Oj6u3k5m7fF1aLJQ8g&dib_tag=se&gad_source=1&hvadid=545733123259&hvdev=c&hvexpln=0&hvlocphy=9198719&hvnetw=g&hvocijid=10398158646755666753--&hvqmt=e&hvrand=10398158646755666753&hvtargid=kwd-302055099758&hydadcr=27147_2237216&keywords=bird+by+bird&mcid=8b97848638b235a4ae2d0c4d4f46549e&qid=1786827447&sr=8-1"
+    },
+    {
+      "id": "r1786827499625",
+      "title": "convenience store woman",
+      "link": "https://www.amazon.com.tr/Convenience-Store-Woman-Sayaka-Murata/dp/1846276845/ref=sr_1_1?crid=3RQ0BV3MQUYA0&dib=eyJ2IjoiMSJ9.wSq1wbW5CWMyUpzPKZCcKIfOw0psH9F4x4Daaa2So_UNtpHBg5LjTYZViVPETT6Y7371kDFb6K1jKv1IzlomROuRVo_arCht5_ivDxss_TE.z3V5bwN5a9D7M1txF_fJfyzGBeN0DFW1jOHwpD9A2iQ&dib_tag=se&keywords=sayaka+murata+convenience+store+woman&qid=1786827485&sprefix=sayaka+murata+con%2Caps%2C143&sr=8-1"
+    },
+    {
+      "id": "r1786827531493",
+      "title": "eve",
+      "link": "https://www.goodreads.com/tr/book/show/75494215-eve"
+    },
+    {
+      "id": "r1786827558353",
+      "title": "hunger",
+      "link": "https://www.goodreads.com/book/show/216434351-hunger"
+    },
+    {
+      "id": "r1786827634278",
+      "title": "the devil's disciple",
+      "link": "https://www.goodreads.com/tr/book/show/8032191-the-devil-s-disciple"
+    },
+    {
+      "id": "r1786827650439",
+      "title": "sapiens",
+      "link": "https://www.amazon.com.tr/Sapiens-Humankind-Yuval-Noah-Harari/dp/1786141671"
+    }
+  ]
 }
