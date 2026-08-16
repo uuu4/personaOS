@@ -2,7 +2,12 @@
 // Verifies admin password and commits data.json to uuu4/personaOS via GitHub API.
 // Secrets (set via `wrangler secret put`):
 //   GITHUB_TOKEN     — fine-grained PAT, Contents: Read & Write on uuu4/personaOS
+//                      (also needs Contents: Read on the CV repo below, if private)
 //   ADMIN_PASSWORD   — plaintext password for the admin login
+// Vars for the private CV proxy (set in wrangler.toml [vars], not secret — not sensitive):
+//   CV_REPO   — "owner/repo" of the repo you push your CV PDF to
+//   CV_PATH   — path to the PDF within that repo, e.g. "cv.pdf"
+//   CV_BRANCH — defaults to "main" if unset
 
 const REPO   = 'uuu4/personaOS';
 const PATH   = 'data.json';
@@ -50,6 +55,31 @@ export default {
             'Content-Type': ct,
             'Cache-Control': 'public, max-age=86400'
           }
+        });
+      } catch (e) {
+        return new Response('fetch failed: ' + String(e.message || e), { status: 502, headers: cors });
+      }
+    }
+
+    // ── GET /cv — private-repo CV PDF proxy (GITHUB_TOKEN auth happens here, never in the browser) ──
+    if (req.method === 'GET' && url.pathname === '/cv') {
+      if (!env.GITHUB_TOKEN) return new Response('worker not configured (missing GITHUB_TOKEN)', { status: 500, headers: cors });
+      if (!env.CV_REPO || !env.CV_PATH) return new Response('CV not configured — set CV_REPO and CV_PATH in wrangler.toml', { status: 404, headers: cors });
+      try {
+        const upstream = await fetch(
+          `https://api.github.com/repos/${env.CV_REPO}/contents/${env.CV_PATH}?ref=${encodeURIComponent(env.CV_BRANCH || 'main')}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${env.GITHUB_TOKEN}`,
+              'Accept': 'application/vnd.github.raw+json',
+              'User-Agent': 'personaOS-worker',
+              'X-GitHub-Api-Version': '2022-11-28'
+            }
+          }
+        );
+        if (!upstream.ok) return new Response('CV fetch failed: ' + upstream.status, { status: 502, headers: cors });
+        return new Response(upstream.body, {
+          headers: { ...cors, 'Content-Type': 'application/pdf', 'Cache-Control': 'public, max-age=300' }
         });
       } catch (e) {
         return new Response('fetch failed: ' + String(e.message || e), { status: 502, headers: cors });

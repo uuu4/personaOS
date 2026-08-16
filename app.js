@@ -759,7 +759,7 @@ function renderCV(){
     </div>
     <hr class="divider">
     <div class="section-label" style="margin-bottom:8px">CV</div>
-    ${ro?'':`<div class="form-row"><label>CV PDF URL (raw link to a repo you push to — stays in sync automatically)</label><input class="form-input" id="cv-url-input" value="${esc(cv.cvUrl||'')}" placeholder="https://raw.githubusercontent.com/you/cv/main/cv.pdf" oninput="cv.cvUrl=this.value" onchange="cv.cvUrl=this.value;saveCV();renderCVPreview()"></div>`}
+    ${ro?'':`<div class="form-row"><label>CV PDF URL (a link that stays in sync as you push updates)</label><input class="form-input" id="cv-url-input" value="${esc(cv.cvUrl||'')}" placeholder="https://raw.githubusercontent.com/you/cv/main/cv.pdf" oninput="cv.cvUrl=this.value" onchange="cv.cvUrl=this.value;saveCV();renderCVPreview()"><div style="font-size:11px;color:var(--muted);font-family:'Pixelify Sans',monospace;margin-top:3px">Public repo → raw.githubusercontent.com link. Private repo → use ${WORKER_URL}/cv (worker fetches it server-side; see worker/wrangler.toml).</div></div>`}
     <div class="pdf-preview-box" id="cv-pdf-box" style="width:100%;min-height:220px;margin-bottom:8px">
       <div class="pdf-placeholder">${cv.cvUrl?'[ Loading… ]':'[ No CV linked ]'}</div>
     </div>

@@ -12,5 +12,13 @@ compatibility_date = "2025-01-01"
 binding = "GUESTBOOK"
 id = "913c2fd643704c2dae201af7a264d80b"
 
+# Private CV proxy — GET /cv serves this file using GITHUB_TOKEN server-side,
+# so the source repo can stay private without ever exposing the token.
+# Leave unset (or delete this block) if you don't need this.
+[vars]
+CV_REPO = ""   # e.g. "uuu4/my-cv"
+CV_PATH = ""   # e.g. "cv.pdf"
+CV_BRANCH = "main"
+
 [observability]
 enabled = true
