@@ -152,7 +152,8 @@ const DEFAULT_CV = {
   name:'Your Name',role:'Researcher · PhD Candidate',avatar:'🧑‍💻',
   bio:'Write a short bio about yourself, your research interests, and current work.',
   affiliation:'University / Lab name',email:'you@example.com',website:'yoursite.com',
-  interests:'Machine Learning, Reinforcement Learning, NLP'
+  interests:'Machine Learning, Reinforcement Learning, NLP',
+  cvUrl:''
 };
 
 let papers = [];
@@ -757,6 +758,13 @@ function renderCV(){
       <div class="form-row" style="flex:1"><label>Website</label><input class="cv-field" value="${esc(cv.website)}" ${ro?ROFLAG:'oninput="cv.website=this.value;saveCV()"'}></div>
     </div>
     <hr class="divider">
+    <div class="section-label" style="margin-bottom:8px">CV</div>
+    ${ro?'':`<div class="form-row"><label>CV PDF URL (raw link to a repo you push to — stays in sync automatically)</label><input class="form-input" id="cv-url-input" value="${esc(cv.cvUrl||'')}" placeholder="https://raw.githubusercontent.com/you/cv/main/cv.pdf" oninput="cv.cvUrl=this.value" onchange="cv.cvUrl=this.value;saveCV();renderCVPreview()"></div>`}
+    <div class="pdf-preview-box" id="cv-pdf-box" style="width:100%;min-height:220px;margin-bottom:8px">
+      <div class="pdf-placeholder">${cv.cvUrl?'[ Loading… ]':'[ No CV linked ]'}</div>
+    </div>
+    ${cv.cvUrl?`<a href="${esc(cv.cvUrl)}" target="_blank" rel="noopener noreferrer" class="win-btn" style="display:inline-block;text-decoration:none;font-size:12px;padding:2px 8px;margin-bottom:8px">⬇ Open full PDF</a>`:''}
+    <hr class="divider">
     <div class="section-label" style="margin-bottom:8px">GitHub</div>
     ${ro?'':`<div class="form-row"><label>GitHub username</label><input class="cv-field" value="${esc(cv.github||'uuu4')}" oninput="cv.github=this.value;saveCV()" onchange="renderGitHubPanel()"></div>`}
     <div id="gh-graph" class="gh-graph-box"><div class="gh-err">loading…</div></div>
@@ -771,7 +779,9 @@ function renderCV(){
     <button class="win-btn" onclick="closeWindow('about');toast('All saved ✓')">[ Done ]</button>
   `;
   renderGitHubPanel();
+  renderCVPreview();
 }
+function renderCVPreview(){ renderPdfPreview(cv.cvUrl, 'cv-pdf-box'); }
 // Live GitHub mini-panel (public CORS APIs, no auth, no worker).
 async function renderGitHubPanel(){
   const graphEl=document.getElementById('gh-graph'), reposEl=document.getElementById('gh-repos');
