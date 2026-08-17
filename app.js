@@ -473,8 +473,8 @@ function hidePreview(){clearTimeout(previewTimeout);previewCard.classList.remove
 
 // ── REVIEWS FOLDER ────────────────────────────────────────
 function reviewsStatusText(){ return `${papers.length} papers · ${isCoarsePointer()?'tap':'double-click'} to open`; }
-function openReviews(){
-  createWindow({id:'reviews',title:'Reviews',icon:'📁',width:520,height:380,statusText:reviewsStatusText(),buildBody:inner=>{
+function openReviews(x){
+  createWindow({id:'reviews',title:'Reviews',icon:'📁',width:520,height:380,x,statusText:reviewsStatusText(),buildBody:inner=>{
     inner.innerHTML=`<div class="folder-toolbar" id="folder-toolbar"></div><div class="window-body" style="padding:10px"><div class="folder-grid" id="folder-grid"></div></div>`;
     renderFolderToolbar();
     renderFolderGrid();
@@ -1144,7 +1144,7 @@ function renderPrefsBody(){
   updateAdminBadge();
   await bootData();
   applyPrefs();
-  setTimeout(()=>openReviews(),200);
+  setTimeout(()=>openReviews(130),200); // clear of the desktop icon column (~18-100px) so it doesn't hide the rest of the desktop on first load
   const deepId=new URLSearchParams(location.search).get('paper');
   if(deepId && papers.some(p=>p.id===deepId)) setTimeout(()=>openPaper(deepId),400);
   if(!_lsOk) setTimeout(()=>toast('⚠ Storage disabled — changes won\'t persist'),1200);
