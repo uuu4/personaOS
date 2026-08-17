@@ -10,6 +10,10 @@ function lsRemove(k){ try { localStorage.removeItem(k); } catch(e){} }
 const _ESC = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>_ESC[c]); }
 
+// ── INPUT METHOD ──────────────────────────────────────────
+// Touch has no reliable double-click; a coarse pointer opens on a single tap instead.
+function isCoarsePointer(){ return matchMedia('(pointer: coarse)').matches; }
+
 // ── PUBLISH WORKER ────────────────────────────────────────
 // Cloudflare Worker that verifies the admin password and commits data.json to the repo.
 // Empty string => admin login is disabled (read-only site).
@@ -211,7 +215,7 @@ async function pullRemote(){
   renderFolderGrid(); renderFolderToolbar(); refreshOpenPapers();
   if(document.getElementById('cv-body')) renderCV();
   if(document.getElementById('rl-body')) renderReadingList();
-  const fw = openWindows['reviews']; if(fw) fw.querySelector('.window-statusbar').textContent=`${papers.length} papers · double-click to open`;
+  const fw = openWindows['reviews']; if(fw) fw.querySelector('.window-statusbar').textContent=reviewsStatusText();
   toast(remoteSnapshot ? 'Pulled remote ✓' : 'No data.json on server — using defaults');
 }
 
@@ -415,8 +419,9 @@ function showPreview(p,e){clearTimeout(previewTimeout);previewTimeout=setTimeout
 function hidePreview(){clearTimeout(previewTimeout);previewCard.classList.remove('show');}
 
 // ── REVIEWS FOLDER ────────────────────────────────────────
+function reviewsStatusText(){ return `${papers.length} papers · ${isCoarsePointer()?'tap':'double-click'} to open`; }
 function openReviews(){
-  createWindow({id:'reviews',title:'Reviews',icon:'📁',width:520,height:380,statusText:`${papers.length} papers · double-click to open`,buildBody:inner=>{
+  createWindow({id:'reviews',title:'Reviews',icon:'📁',width:520,height:380,statusText:reviewsStatusText(),buildBody:inner=>{
     inner.innerHTML=`<div class="folder-toolbar" id="folder-toolbar"></div><div class="window-body" style="padding:10px"><div class="folder-grid" id="folder-grid"></div></div>`;
     renderFolderToolbar();
     renderFolderGrid();
@@ -446,7 +451,10 @@ function renderFolderGrid(){
   papers.forEach(p=>{
     const el=document.createElement('div');el.className='folder-icon';
     el.innerHTML=`<div class="f-img">${esc(p.icon)}</div><div class="f-label">${esc(p.title)}</div>`;
-    el.addEventListener('click',()=>{document.querySelectorAll('.folder-icon').forEach(x=>x.classList.remove('selected'));el.classList.add('selected');});
+    el.addEventListener('click',()=>{
+      document.querySelectorAll('.folder-icon').forEach(x=>x.classList.remove('selected'));el.classList.add('selected');
+      if(isCoarsePointer()) openPaper(p.id);
+    });
     el.addEventListener('dblclick',()=>openPaper(p.id));
     el.addEventListener('mouseenter',e=>showPreview(p,e));
     el.addEventListener('mousemove',e=>{if(previewCard.classList.contains('show')){previewCard.style.left=Math.min(e.clientX+14,window.innerWidth-260)+'px';previewCard.style.top=Math.min(e.clientY+10,window.innerHeight-120)+'px';}});
@@ -613,7 +621,7 @@ function setRating(id,r,el){
 function deletePaper(id){
   if(!confirm('Remove this paper?'))return;
   papers=papers.filter(x=>x.id!==id);savePapers();closeWindow('paper-'+id);renderFolderGrid();
-  const fw=openWindows['reviews'];if(fw)fw.querySelector('.window-statusbar').textContent=`${papers.length} papers · double-click to open`;
+  const fw=openWindows['reviews'];if(fw)fw.querySelector('.window-statusbar').textContent=reviewsStatusText();
   toast('Paper removed');
 }
 
@@ -683,7 +691,7 @@ function submitAddPaper(){
     pdfUrl:document.getElementById('ap-pdfurl').value.trim()||''
   });
   savePapers();renderFolderGrid();
-  const fw=openWindows['reviews'];if(fw)fw.querySelector('.window-statusbar').textContent=`${papers.length} papers · double-click to open`;
+  const fw=openWindows['reviews'];if(fw)fw.querySelector('.window-statusbar').textContent=reviewsStatusText();
   closeWindow('add-paper');toast('Paper added!');
   setTimeout(()=>openPaper(id),200);
 }
@@ -811,6 +819,19 @@ function toggleStartMenu(){document.getElementById('start-menu').classList.toggl
 function closeStartMenu(){document.getElementById('start-menu').classList.remove('open');}
 function closeCtx(){document.getElementById('ctx-menu').classList.remove('open');}
 function selectIcon(id){document.querySelectorAll('.d-icon').forEach(x=>x.classList.remove('selected'));document.getElementById(id)?.classList.add('selected');}
+
+// Desktop icons rely on dblclick to open (see index.html); touch has no reliable
+// double-tap, so a coarse pointer opens straight from the first tap instead.
+const DESKTOP_ICON_OPENERS = {
+  'icon-reviews':openReviews,'icon-about':openAbout,'icon-guestbook':openGuestbook,
+  'icon-reading':openReadingList,'icon-terminal':()=>openTerminal(),'icon-classified':openClassified
+};
+document.getElementById('desktop').addEventListener('click',e=>{
+  if(!isCoarsePointer()) return;
+  const icon=e.target.closest('.d-icon');
+  const opener=icon && DESKTOP_ICON_OPENERS[icon.id];
+  if(opener) opener();
+});
 
 document.getElementById('desktop').addEventListener('contextmenu',e=>{e.preventDefault();const m=document.getElementById('ctx-menu');m.style.left=e.clientX+'px';m.style.top=Math.min(e.clientY,window.innerHeight-140)+'px';const ni=document.getElementById('ctx-note-item');if(ni)ni.style.display=isAdmin()?'block':'none';m.classList.add('open');});
 document.addEventListener('click',()=>{closeCtx();closeStartMenu();});
