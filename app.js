@@ -387,6 +387,7 @@ function makeResizable(win) {
 }
 const WIN_SCALE = {small:0.72, medium:1.0, large:1.38};
 function createWindow({id,title,icon='📄',width=480,height=440,x,y,buildBody,statusText='',modal=false}) {
+  if(typeof dismissSS==='function') dismissSS();
   if(openWindows[id]){const w=openWindows[id];w.classList.remove('minimized');bringToFront(w);updateTaskbarBtn(id,false);playSound('click');return w;}
   const sc=WIN_SCALE[prefs?.winSize]||1; width=Math.round(width*sc); height=Math.round(height*sc);
   const win=document.createElement('div');
@@ -1205,6 +1206,7 @@ function renderPrefsBody(){
     ssEl.remove(); ssEl=null;
     resetIdle();
   }
+  window.dismissSS=dismissSS;
 
   ['mousemove','mousedown','keydown','touchstart','scroll'].forEach(ev=>
     document.addEventListener(ev, resetIdle, {passive:true})
