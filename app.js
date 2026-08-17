@@ -121,7 +121,8 @@ async function publishToWorker(){
       if(document.getElementById('cv-body')) renderCV();
       if(document.getElementById('rl-body')) renderReadingList();
       renderStickyNote();
-      toast('Published ✓ — live in ~30 sec');
+      toast('Committed ✓ — deploying…');
+      pollDeploy({ papers, cv, note: stickyNote, readingList });
     } else if(r.status===401){
       try { sessionStorage.removeItem(PW_SESSION_KEY); } catch(e){}
       setAdmin(false);
@@ -134,6 +135,18 @@ async function publishToWorker(){
   } catch(e){
     toast('Network error');
   }
+}
+
+// Confirms the commit actually reached the live site instead of just promising a fixed
+// wait — GitHub Pages redeploys take 30-90s and occasionally longer or fail silently.
+async function pollDeploy(expected, triesLeft=20){
+  if(triesLeft<=0){ toast('Committed ✓ — still deploying, check back shortly'); return; }
+  await new Promise(r=>setTimeout(r,3000));
+  try{
+    const live = await (await fetch('./data.json?t='+Date.now(), {cache:'no-store'})).json();
+    if(JSON.stringify(live)===JSON.stringify(expected)){ toast('Deployed ✓ — live now'); return; }
+  }catch(e){}
+  pollDeploy(expected, triesLeft-1);
 }
 
 function refreshOpenPapers(){
