@@ -824,6 +824,7 @@ function renderCV(){
       <div style="width:60px;height:60px;background:var(--win-parch);border:2px solid var(--win-bdr);display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;${ro?'':'cursor:pointer;'}box-shadow:inset 1px 1px 0 var(--btn-hi),inset -1px -1px 0 var(--btn-sh)" ${ro?'':'onclick="changeAvatar()" title="Click to change"'}>${esc(cv.avatar)}</div>
       <div style="flex:1"><input class="cv-name-input" id="cv-name" value="${esc(cv.name)}" ${ro?ROFLAG:'oninput="cv.name=this.value;saveCV()"'} placeholder="Your Name"><input class="cv-field" value="${esc(cv.role)}" ${ro?ROFLAG:'oninput="cv.role=this.value;saveCV()"'} placeholder="Role / Title" style="font-style:italic;color:var(--muted)"></div>
     </div>
+    <div class="section-label" style="margin-bottom:8px">Profile</div>
     <div class="form-row"><label>Affiliation</label><input class="cv-field" value="${esc(cv.affiliation)}" ${ro?ROFLAG:'oninput="cv.affiliation=this.value;saveCV()"'}></div>
     <div class="form-row"><label>Bio</label><textarea class="cv-textarea" rows="4" ${ro?ROFLAG:'oninput="cv.bio=this.value;saveCV()"'}>${esc(cv.bio)}</textarea></div>
     <div class="form-row"><label>Research Interests</label><input class="cv-field" value="${esc(cv.interests)}" ${ro?ROFLAG:'oninput="cv.interests=this.value;saveCV()"'}></div>
@@ -839,17 +840,23 @@ function renderCV(){
     </div>
     ${cv.cvUrl?`<a href="${esc(cv.cvUrl)}" target="_blank" rel="noopener noreferrer" class="win-btn" style="display:inline-block;text-decoration:none;font-size:12px;padding:2px 8px;margin-bottom:8px">⬇ Open full PDF</a>`:''}
     <hr class="divider">
-    <div class="section-label" style="margin-bottom:8px">GitHub</div>
-    ${ro?'':`<div class="form-row"><label>GitHub username</label><input class="cv-field" value="${esc(cv.github||'uuu4')}" oninput="cv.github=this.value;saveCV()" onchange="renderGitHubPanel()"></div>`}
-    <div id="gh-graph" class="gh-graph-box"><div class="gh-err">loading…</div></div>
-    <div class="section-label" style="margin:10px 0 6px">Recent Repos</div>
-    <div id="gh-repos"><div class="gh-err">loading…</div></div>
-    <hr class="divider">
-    <div class="section-label" style="margin-bottom:8px">Reading Stats</div>
-    <div class="stats-box">
-      📚 Papers read: <b>${papers.length}</b> &nbsp;·&nbsp; ⭐ Avg rating: <b>${papers.length?(papers.reduce((s,p)=>s+(p.rating||0),0)/papers.length).toFixed(1):'—'}</b><br>
-      🏷 Top tag: <b>${esc(topTag())}</b> &nbsp;·&nbsp; ✍️ With notes: <b>${papers.filter(p=>(p.notes||'').trim()).length}</b>
-    </div><br>
+    <details>
+      <summary style="cursor:pointer;font-family:'Pixelify Sans',monospace;font-size:13px;color:var(--muted);padding:4px 0">GitHub &amp; Reading Stats</summary>
+      <div style="padding-top:8px">
+        <div class="section-label" style="margin-bottom:8px">GitHub</div>
+        ${ro?'':`<div class="form-row"><label>GitHub username</label><input class="cv-field" value="${esc(cv.github||'uuu4')}" oninput="cv.github=this.value;saveCV()" onchange="renderGitHubPanel()"></div>`}
+        <div id="gh-graph" class="gh-graph-box"><div class="gh-err">loading…</div></div>
+        <div class="section-label" style="margin:10px 0 6px">Recent Repos</div>
+        <div id="gh-repos"><div class="gh-err">loading…</div></div>
+        <hr class="divider">
+        <div class="section-label" style="margin-bottom:8px">Reading Stats</div>
+        <div class="stats-box">
+          📚 Papers read: <b>${papers.length}</b> &nbsp;·&nbsp; ⭐ Avg rating: <b>${papers.length?(papers.reduce((s,p)=>s+(p.rating||0),0)/papers.length).toFixed(1):'—'}</b><br>
+          🏷 Top tag: <b>${esc(topTag())}</b> &nbsp;·&nbsp; ✍️ With notes: <b>${papers.filter(p=>(p.notes||'').trim()).length}</b>
+        </div>
+      </div>
+    </details>
+    <br>
     <button class="win-btn" onclick="closeWindow('about');toast('All saved ✓')">[ Done ]</button>
   `;
   renderGitHubPanel();
