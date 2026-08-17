@@ -124,6 +124,9 @@ body.scanlines-off #crt-vignette { display: none !important; }
 .notes-area:focus-visible, .cv-textarea:focus-visible, .tag-add:focus-visible {
   outline: 2px solid var(--accent2); outline-offset: 1px;
 }
+.d-icon:focus-visible, .folder-icon:focus-visible, .star:focus-visible {
+  outline: 2px solid var(--accent2); outline-offset: 2px;
+}
 .window.minimized{ display: none; }
 .window.closing    { animation: winClose .10s steps(2) both; }
 .window.maximized  { left:0!important;top:0!important;width:100vw!important;height:calc(100vh - 34px)!important;transition:none; }

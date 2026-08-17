@@ -49,7 +49,7 @@ function toggleAdminLogin(){
 
 function openLoginWindow(){
   if(openWindows['login']){bringToFront(openWindows['login']);return;}
-  createWindow({id:'login',title:'Admin Login',icon:'🔐',width:320,height:210,statusText:'Verified by publish worker',buildBody:inner=>{
+  createWindow({id:'login',title:'Admin Login',icon:'🔐',width:320,height:210,statusText:'Verified by publish worker',modal:true,buildBody:inner=>{
     inner.innerHTML=`<div class="window-body">
       <div class="section-label" style="margin-bottom:8px">PASSWORD</div>
       <input class="form-input" id="login-pass" type="password" placeholder="Enter password…" onkeydown="if(event.key==='Enter')submitLogin()" autofocus>
@@ -257,7 +257,7 @@ function removeTag(id,i){
   savePapers(); renderPaperBody(p);
 }
 function starsHTML(rating, id, editable=true) {
-  return [1,2,3,4,5].map(i=>`<span class="star ${i<=rating?'lit':'unlit'}" ${editable?`onclick="setRating('${id}',${i},this)"`:'style="cursor:default"'}>★</span>`).join('');
+  return [1,2,3,4,5].map(i=>`<span class="star ${i<=rating?'lit':'unlit'}" ${editable?`tabindex="0" role="button" aria-label="Rate ${i} star${i>1?'s':''}" onclick="setRating('${id}',${i},this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setRating('${id}',${i},this)}"`:'style="cursor:default"'}>★</span>`).join('');
 }
 
 // ── PDF PREVIEW ───────────────────────────────────────────
@@ -370,11 +370,12 @@ function makeResizable(win) {
   document.addEventListener('mouseup',()=>{ if(r){ r=false; } });
 }
 const WIN_SCALE = {small:0.72, medium:1.0, large:1.38};
-function createWindow({id,title,icon='📄',width=480,height=440,x,y,buildBody,statusText=''}) {
+function createWindow({id,title,icon='📄',width=480,height=440,x,y,buildBody,statusText='',modal=false}) {
   if(openWindows[id]){const w=openWindows[id];w.classList.remove('minimized');bringToFront(w);updateTaskbarBtn(id,false);playSound('click');return w;}
   const sc=WIN_SCALE[prefs?.winSize]||1; width=Math.round(width*sc); height=Math.round(height*sc);
   const win=document.createElement('div');
   win.className='window'; win.dataset.winId=id;
+  if(modal){ win.setAttribute('role','dialog'); win.setAttribute('aria-modal','true'); win.setAttribute('aria-label',title); }
   win.style.cssText=`width:${width}px;height:${height}px;left:${x!==undefined?x:Math.max(20,30+Math.random()*(window.innerWidth-width-80))}px;top:${y!==undefined?y:Math.max(20,40+Math.random()*(window.innerHeight-height-80))}px`;
   win.innerHTML=`<div class="titlebar"><span class="title-text">${icon} ${title}</span><div class="wbtn-group"><button class="wbtn wbtn-min" title="Minimize" data-sym="–"></button><button class="wbtn wbtn-max" title="Maximize" data-sym="□"></button><button class="wbtn wbtn-close close-x" title="Close" data-sym="✕"></button></div></div><div class="win-inner" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden"></div><div class="window-statusbar">${statusText}</div><div class="resize-handle"></div>`;
   document.body.appendChild(win);
@@ -386,6 +387,7 @@ function createWindow({id,title,icon='📄',width=480,height=440,x,y,buildBody,s
   win.querySelector('.wbtn-min').onclick=()=>minimizeWindow(id);
   win.querySelector('.wbtn-max').onclick=()=>{toggleMaximize(win);playSound('open');};
   win.addEventListener('mousedown',()=>bringToFront(win));
+  if(modal) win.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.stopPropagation(); closeWindow(id); } });
   addTaskbarBtn(id,icon+' '+title);
   bringToFront(win);
   playSound('open');
@@ -450,12 +452,19 @@ function renderFolderGrid(){
   grid.innerHTML='';
   papers.forEach(p=>{
     const el=document.createElement('div');el.className='folder-icon';
+    el.tabIndex=0; el.setAttribute('role','button'); el.setAttribute('aria-label','Open '+p.title);
     el.innerHTML=`<div class="f-img">${esc(p.icon)}</div><div class="f-label">${esc(p.title)}</div>`;
     el.addEventListener('click',()=>{
       document.querySelectorAll('.folder-icon').forEach(x=>x.classList.remove('selected'));el.classList.add('selected');
       if(isCoarsePointer()) openPaper(p.id);
     });
     el.addEventListener('dblclick',()=>openPaper(p.id));
+    el.addEventListener('keydown',e=>{
+      if(e.key!=='Enter' && e.key!==' ') return;
+      e.preventDefault();
+      document.querySelectorAll('.folder-icon').forEach(x=>x.classList.remove('selected'));el.classList.add('selected');
+      openPaper(p.id);
+    });
     el.addEventListener('mouseenter',e=>showPreview(p,e));
     el.addEventListener('mousemove',e=>{if(previewCard.classList.contains('show')){previewCard.style.left=Math.min(e.clientX+14,window.innerWidth-260)+'px';previewCard.style.top=Math.min(e.clientY+10,window.innerHeight-120)+'px';}});
     el.addEventListener('mouseleave',hidePreview);
@@ -628,7 +637,7 @@ function deletePaper(id){
 // ── ADD PAPER ─────────────────────────────────────────────
 function openAddPaper(){
   if(openWindows['add-paper']){bringToFront(openWindows['add-paper']);return;}
-  createWindow({id:'add-paper',title:'Add New Paper',icon:'📄',width:420,height:520,statusText:'New entry',buildBody:inner=>{
+  createWindow({id:'add-paper',title:'Add New Paper',icon:'📄',width:420,height:520,statusText:'New entry',modal:true,buildBody:inner=>{
     inner.innerHTML=`<div class="window-body">
       <div class="form-row" style="background:var(--win-parch);border:1px solid #c8a86060;padding:7px 8px">
         <label>⤓ Auto-fill from arXiv / DOI / link</label>
@@ -653,6 +662,7 @@ function openAddPaper(){
         <button class="win-btn" style="margin-bottom:8px" onclick="submitAddPaper()">[ Add to Library ]</button>
       </div>
     </div>`;
+    setTimeout(()=>document.getElementById('ap-fetch')?.focus(),100);
   }});
 }
 
@@ -821,7 +831,8 @@ function closeCtx(){document.getElementById('ctx-menu').classList.remove('open')
 function selectIcon(id){document.querySelectorAll('.d-icon').forEach(x=>x.classList.remove('selected'));document.getElementById(id)?.classList.add('selected');}
 
 // Desktop icons rely on dblclick to open (see index.html); touch has no reliable
-// double-tap, so a coarse pointer opens straight from the first tap instead.
+// double-tap, so a coarse pointer opens straight from the first tap instead —
+// and a keyboard has no dblclick at all, so Enter/Space always opens directly.
 const DESKTOP_ICON_OPENERS = {
   'icon-reviews':openReviews,'icon-about':openAbout,'icon-guestbook':openGuestbook,
   'icon-reading':openReadingList,'icon-terminal':()=>openTerminal(),'icon-classified':openClassified
@@ -831,6 +842,13 @@ document.getElementById('desktop').addEventListener('click',e=>{
   const icon=e.target.closest('.d-icon');
   const opener=icon && DESKTOP_ICON_OPENERS[icon.id];
   if(opener) opener();
+});
+document.getElementById('desktop').addEventListener('keydown',e=>{
+  if(e.key!=='Enter' && e.key!==' ') return;
+  const icon=e.target.closest('.d-icon');
+  const opener=icon && DESKTOP_ICON_OPENERS[icon.id];
+  if(!opener) return;
+  e.preventDefault(); selectIcon(icon.id); opener();
 });
 
 document.getElementById('desktop').addEventListener('contextmenu',e=>{e.preventDefault();const m=document.getElementById('ctx-menu');m.style.left=e.clientX+'px';m.style.top=Math.min(e.clientY,window.innerHeight-140)+'px';const ni=document.getElementById('ctx-note-item');if(ni)ni.style.display=isAdmin()?'block':'none';m.classList.add('open');});
@@ -1079,7 +1097,7 @@ function renderPrefsBody(){
 
 // ── SCREENSAVER ───────────────────────────────────────────
 (()=>{
-  const IDLE_MS = 2 * 60 * 1000; // 2 dakika
+  const IDLE_MS = 5 * 60 * 1000; // 5 dakika — reading a paper shouldn't get interrupted
   let idleTimer, ssEl=null;
 
   function resetIdle(){
@@ -1090,6 +1108,8 @@ function renderPrefsBody(){
 
   function startSS(){
     if(ssEl) return;
+    // Any open window (a paper, About Me, …) means someone's using the desktop, not idle — wait it out.
+    if(Object.keys(openWindows).length){ idleTimer = setTimeout(startSS, IDLE_MS); return; }
     ssEl = document.createElement('div'); ssEl.id='screensaver';
     const txt = document.createElement('div'); txt.id='screensaver-text';
     txt.textContent = 'personaOS';
