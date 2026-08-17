@@ -35,12 +35,12 @@ function updateAdminBadge(){
 
 function toggleAdminLogin(){
   if(isAdmin()){
-    if(confirm('Log out from admin?')){
+    themedConfirm('Log out from admin?',()=>{
       setAdmin(false);
       try { sessionStorage.removeItem(PW_SESSION_KEY); } catch(e){}
       refreshOpens();
       toast('Logged out');
-    }
+    },{confirmLabel:'Log Out',danger:false});
   } else {
     if(!WORKER_URL){ toast('Publishing not configured — read-only site'); return; }
     openLoginWindow();
@@ -99,12 +99,13 @@ async function submitLogin(){
   }
 }
 
-async function publishToWorker(){
+function publishToWorker(){
   if(!WORKER_URL){ toast('Worker not configured'); return; }
   let pass=''; try { pass = sessionStorage.getItem(PW_SESSION_KEY) || ''; } catch(e){}
   if(!pass){ toast('Session expired — log in again'); setAdmin(false); openLoginWindow(); return; }
-  const msg = prompt('Commit message:', 'Update via personaOS');
-  if(msg===null) return;
+  themedPrompt('Commit message:','Update via personaOS',msg=>doPublish(msg,pass));
+}
+async function doPublish(msg,pass){
   toast('Publishing…');
   try {
     const r = await fetch(WORKER_URL.replace(/\/$/,'') + '/publish', {
@@ -221,15 +222,16 @@ function exportData(){
   toast('data.json downloaded — commit to repo to publish');
 }
 
-async function pullRemote(){
-  if(!confirm('Discard your local draft and pull data.json from the server?')) return;
-  lsRemove(STORE_KEY); lsRemove(CV_KEY); lsRemove(RL_KEY);
-  await bootData();
-  renderFolderGrid(); renderFolderToolbar(); refreshOpenPapers();
-  if(document.getElementById('cv-body')) renderCV();
-  if(document.getElementById('rl-body')) renderReadingList();
-  const fw = openWindows['reviews']; if(fw) fw.querySelector('.window-statusbar').textContent=reviewsStatusText();
-  toast(remoteSnapshot ? 'Pulled remote ✓' : 'No data.json on server — using defaults');
+function pullRemote(){
+  themedConfirm('Discard your local draft and pull data.json from the server?',async ()=>{
+    lsRemove(STORE_KEY); lsRemove(CV_KEY); lsRemove(RL_KEY);
+    await bootData();
+    renderFolderGrid(); renderFolderToolbar(); refreshOpenPapers();
+    if(document.getElementById('cv-body')) renderCV();
+    if(document.getElementById('rl-body')) renderReadingList();
+    const fw = openWindows['reviews']; if(fw) fw.querySelector('.window-statusbar').textContent=reviewsStatusText();
+    toast(remoteSnapshot ? 'Pulled remote ✓' : 'No data.json on server — using defaults');
+  },{confirmLabel:'Discard & Pull'});
 }
 
 function hasLocalDraft(){ return !!(lsGet(STORE_KEY) || lsGet(CV_KEY) || lsGet(RL_KEY)); }
@@ -428,6 +430,41 @@ function tick(){
 tick();setInterval(tick,10000);
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1800);}
 
+// ── THEMED CONFIRM / PROMPT ──────────────────────────────
+// Replaces native confirm()/prompt() at destructive or high-stakes actions
+// (delete, logout, pull, publish) with the same modal:true window used for
+// Admin Login, instead of breaking the retro chrome with browser chrome.
+let _dialogSeq=0;
+function themedConfirm(message,onConfirm,{confirmLabel='OK',danger=true}={}){
+  const id='confirm-dialog-'+(++_dialogSeq);
+  createWindow({id,title:'Confirm',icon:'⚠️',width:320,height:150,modal:true,buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body">
+      <div style="margin-bottom:14px;font-family:'Pixelify Sans',monospace">${esc(message)}</div>
+      <div style="display:flex;gap:8px">
+        <button class="win-btn${danger?' danger':''}" id="dlg-yes">[ ${esc(confirmLabel)} ]</button>
+        <button class="win-btn" onclick="closeWindow('${id}')">[ Cancel ]</button>
+      </div>
+    </div>`;
+    inner.querySelector('#dlg-yes').onclick=()=>{closeWindow(id);onConfirm();};
+    setTimeout(()=>inner.querySelector('#dlg-yes')?.focus(),100);
+  }});
+}
+function themedPrompt(message,defaultValue,onSubmit,{placeholder=''}={}){
+  const id='prompt-dialog-'+(++_dialogSeq);
+  createWindow({id,title:'Input',icon:'✏️',width:340,height:170,modal:true,buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body">
+      <div style="margin-bottom:8px;font-family:'Pixelify Sans',monospace">${esc(message)}</div>
+      <input class="form-input" id="dlg-input" value="${esc(defaultValue||'')}" placeholder="${esc(placeholder)}" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('dlg-ok').click()}">
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="win-btn" id="dlg-ok">[ OK ]</button>
+        <button class="win-btn" onclick="closeWindow('${id}')">[ Cancel ]</button>
+      </div>
+    </div>`;
+    inner.querySelector('#dlg-ok').onclick=()=>{const v=inner.querySelector('#dlg-input').value;closeWindow(id);onSubmit(v);};
+    setTimeout(()=>{const el=inner.querySelector('#dlg-input');el?.focus();el?.select();},100);
+  }});
+}
+
 // ── HOVER PREVIEW ─────────────────────────────────────────
 const previewCard=document.getElementById('preview-card');
 let previewTimeout;
@@ -554,8 +591,11 @@ async function submitGuestbook(){
   } catch(e){ toast('Network error'); }
   finally { if(btn){ btn.disabled=false; btn.textContent='[ Post Note ]'; } }
 }
-async function gbAction(action,id){
-  if(action==='delete' && !confirm('Delete this note?')) return;
+function gbAction(action,id){
+  if(action==='delete'){ themedConfirm('Delete this note?',()=>doGbAction(action,id),{confirmLabel:'Delete'}); return; }
+  doGbAction(action,id);
+}
+async function doGbAction(action,id){
   const base=WORKER_URL.replace(/\/$/,'');
   let pass=''; try{ pass=sessionStorage.getItem(PW_SESSION_KEY)||''; }catch(e){}
   try {
@@ -642,10 +682,11 @@ function setRating(id,r,el){
   toast('Rating saved ✓');
 }
 function deletePaper(id){
-  if(!confirm('Remove this paper?'))return;
-  papers=papers.filter(x=>x.id!==id);savePapers();closeWindow('paper-'+id);renderFolderGrid();
-  const fw=openWindows['reviews'];if(fw)fw.querySelector('.window-statusbar').textContent=reviewsStatusText();
-  toast('Paper removed');
+  themedConfirm('Remove this paper?',()=>{
+    papers=papers.filter(x=>x.id!==id);savePapers();closeWindow('paper-'+id);renderFolderGrid();
+    const fw=openWindows['reviews'];if(fw)fw.querySelector('.window-statusbar').textContent=reviewsStatusText();
+    toast('Paper removed');
+  },{confirmLabel:'Remove'});
 }
 
 // ── ADD PAPER ─────────────────────────────────────────────
@@ -761,9 +802,10 @@ function addReadingItem(){
   toast('Added to reading list ✓');
 }
 function deleteReadingItem(id){
-  if(!confirm('Remove this item?'))return;
-  readingList=readingList.filter(x=>x.id!==id); saveReadingList(); renderReadingList();
-  const w=openWindows['reading-list']; if(w) w.querySelector('.window-statusbar').textContent=`${readingList.length} queued`;
+  themedConfirm('Remove this item?',()=>{
+    readingList=readingList.filter(x=>x.id!==id); saveReadingList(); renderReadingList();
+    const w=openWindows['reading-list']; if(w) w.querySelector('.window-statusbar').textContent=`${readingList.length} queued`;
+  },{confirmLabel:'Remove'});
 }
 
 // ── ABOUT / CV ────────────────────────────────────────────
