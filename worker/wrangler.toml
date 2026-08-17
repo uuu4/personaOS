@@ -16,8 +16,8 @@ id = "913c2fd643704c2dae201af7a264d80b"
 # so the source repo can stay private without ever exposing the token.
 # Leave unset (or delete this block) if you don't need this.
 [vars]
-CV_REPO = ""   # e.g. "uuu4/my-cv"
-CV_PATH = ""   # e.g. "cv.pdf"
+CV_REPO = "uuu4/CV"
+CV_PATH = "aliemreaydin_quantum.pdf"
 CV_BRANCH = "main"
 
 [observability]
