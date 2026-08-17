@@ -331,6 +331,7 @@ function bringToFront(win) {
   zTop++; win.style.zIndex = zTop;
   document.querySelectorAll('.window').forEach(w=>w.classList.remove('focused'));
   win.classList.add('focused');
+  hidePreview(); // a window opening or gaining focus means the hover preview is stale
 }
 function toggleMaximize(win){
   if(win.classList.contains('maximized')){
