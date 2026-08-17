@@ -352,7 +352,7 @@ function makeDraggable(win, handle) {
     if(e.target.closest('.wbtn-group'))return;
     dragging=true; moved=false;
     dx=e.clientX-win.offsetLeft; dy=e.clientY-win.offsetTop;
-    bringToFront(win); e.preventDefault();
+    bringToFront(win); win.classList.add('lifted'); e.preventDefault();
   });
   document.addEventListener('mousemove', e=>{
     if(!dragging)return;
@@ -361,7 +361,7 @@ function makeDraggable(win, handle) {
     win.style.left=Math.max(0,Math.min(e.clientX-dx,window.innerWidth-win.offsetWidth))+'px';
     win.style.top=Math.max(0,Math.min(e.clientY-dy,window.innerHeight-34-win.offsetHeight))+'px';
   });
-  document.addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; } });
+  document.addEventListener('mouseup', ()=>{ if(dragging){ dragging=false; win.classList.remove('lifted'); } });
   // Double-click titlebar to maximize/restore
   handle.addEventListener('dblclick', e=>{
     if(e.target.closest('.wbtn-group'))return;
@@ -371,7 +371,7 @@ function makeDraggable(win, handle) {
 function makeResizable(win) {
   const h=win.querySelector('.resize-handle'); if(!h)return;
   let r=false,sx,sy,sw,sh,squishToasted=false;
-  h.addEventListener('mousedown',e=>{r=true;sx=e.clientX;sy=e.clientY;sw=win.offsetWidth;sh=win.offsetHeight;squishToasted=false;e.preventDefault();e.stopPropagation();});
+  h.addEventListener('mousedown',e=>{r=true;sx=e.clientX;sy=e.clientY;sw=win.offsetWidth;sh=win.offsetHeight;squishToasted=false;win.classList.add('lifted');e.preventDefault();e.stopPropagation();});
   document.addEventListener('mousemove',e=>{
     if(!r)return;
     const nw=sw+e.clientX-sx, nh=sh+e.clientY-sy;
@@ -383,7 +383,7 @@ function makeResizable(win) {
     win.style.width=Math.max(300,nw)+'px';
     win.style.height=Math.max(160,nh)+'px';
   });
-  document.addEventListener('mouseup',()=>{ if(r){ r=false; } });
+  document.addEventListener('mouseup',()=>{ if(r){ r=false; win.classList.remove('lifted'); } });
 }
 const WIN_SCALE = {small:0.72, medium:1.0, large:1.38};
 function createWindow({id,title,icon='📄',width=480,height=440,x,y,buildBody,statusText='',modal=false}) {
@@ -842,8 +842,8 @@ function renderCV(){
     ${cv.cvUrl?`<a href="${esc(cv.cvUrl)}" target="_blank" rel="noopener noreferrer" class="win-btn" style="display:inline-block;text-decoration:none;font-size:12px;padding:2px 8px;margin-bottom:8px">⬇ Open full PDF</a>`:''}
     <hr class="divider">
     <details>
-      <summary style="cursor:pointer;font-family:'Pixelify Sans',monospace;font-size:13px;color:var(--muted);padding:4px 0">GitHub &amp; Reading Stats</summary>
-      <div style="padding-top:8px">
+      <summary class="tab-summary">GitHub &amp; Reading Stats</summary>
+      <div class="tab-body">
         <div class="section-label" style="margin-bottom:8px">GitHub</div>
         ${ro?'':`<div class="form-row"><label>GitHub username</label><input class="cv-field" value="${esc(cv.github||'uuu4')}" oninput="cv.github=this.value;saveCV()" onchange="renderGitHubPanel()"></div>`}
         <div id="gh-graph" class="gh-graph-box"><div class="gh-err">loading…</div></div>
