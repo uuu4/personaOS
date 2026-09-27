@@ -89,6 +89,23 @@
       "notes": "after a decade of lipnet's dominance in controlled settings, auto-avsr completely revolutionized the audio-visual speech recognition landscape by shattering the manual labeling bottleneck; by leveraging an automated pipeline to train on thousands of hours of raw, unlabelled videos using a powerful conformer architecture, it shifted the field from brittle, lab-based lip-reading to a robust, scalable multimodal system that delivers unprecedented word error rates in chaotic, real-world conditions.",
       "icon": "🫦",
       "pdfUrl": "https://arxiv.org/pdf/2303.14307"
+    },
+    {
+      "id": "p1790460896148",
+      "title": "WaveNet: A Generative Model for Raw Audio",
+      "authors": "Aaron van den Oord, Sander Dieleman, Heiga Zen, Karen Simonyan, Oriol Vinyals, Alex Graves, Nal Kalchbrenner, Andrew Senior, Koray Kavukcuoglu",
+      "year": 2016,
+      "venue": "arXiv",
+      "tags": [
+        "deep learning",
+        "convolution",
+        "NLP"
+      ],
+      "abstract": "This paper introduces WaveNet, a deep neural network for generating raw audio waveforms. The model is fully probabilistic and autoregressive, with the predictive distribution for each audio sample conditioned on all previous ones; nonetheless we show that it can be efficiently trained on data with tens of thousands of samples per second of audio. When applied to text-to-speech, it yields state-of-the-art performance, with human listeners rating it as significantly more natural sounding than the best parametric and concatenative systems for both English and Mandarin. A single WaveNet can capture the characteristics of many different speakers with equal fidelity, and can switch between them by conditioning on the speaker identity. When trained to model music, we find that it generates novel and often highly realistic musical fragments. We also show that it can be employed as a discriminative model, returning promising results for phoneme recognition.",
+      "rating": 0,
+      "notes": "I personally really liked this paper imlementing this. The flattening layer seperation is really intuitive. 10/10. Thank you DeepMind",
+      "icon": "🌊",
+      "pdfUrl": "https://arxiv.org/pdf/1609.03499"
     }
   ],
   "cv": {
