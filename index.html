@@ -15,7 +15,7 @@
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Paper Library — Persona OS">
 <meta name="twitter:description" content="A retro desktop-style library for academic papers.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -26,59 +26,27 @@
 
 <div id="desktop">
   <div class="d-icon" id="icon-reviews" tabindex="0" role="button" aria-label="Open Reviews" ondblclick="openReviews()" onclick="selectIcon('icon-reviews')">
-    <div class="icon-img"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
-      <rect x="2" y="3" width="6" height="2" fill="#c8a860"/>
-      <rect x="2" y="5" width="12" height="8" fill="#e8d8b0"/>
-      <rect x="3" y="7" width="10" height="4" fill="#faf4e4"/>
-      <rect x="2" y="3" width="6" height="2" fill="none" stroke="#1a1008" stroke-width="0.9"/>
-      <rect x="2" y="5" width="12" height="8" fill="none" stroke="#1a1008" stroke-width="0.9"/>
-    </svg></div>
+    <div class="icon-img"><img src="assets/icons/reviews.png" alt=""></div>
     <div class="icon-label">Reviews</div>
   </div>
   <div class="d-icon" id="icon-about" tabindex="0" role="button" aria-label="Open About Me" ondblclick="openAbout()" onclick="selectIcon('icon-about')">
-    <div class="icon-img"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
-      <rect x="2" y="2" width="12" height="12" fill="#ede0bc" stroke="#1a1008" stroke-width="0.9"/>
-      <rect x="4" y="4" width="4" height="4" fill="#1f7a8c" stroke="#1a1008" stroke-width="0.6"/>
-      <rect x="9" y="5" width="5" height="1" fill="#5a4828"/>
-      <rect x="9" y="7" width="5" height="1" fill="#5a4828"/>
-      <rect x="4" y="10" width="8" height="1.5" fill="#c87820"/>
-    </svg></div>
+    <div class="icon-img"><img src="assets/icons/about.png" alt=""></div>
     <div class="icon-label">About Me</div>
   </div>
   <div class="d-icon" id="icon-guestbook" tabindex="0" role="button" aria-label="Open Guestbook" ondblclick="openGuestbook()" onclick="selectIcon('icon-guestbook')">
-    <div class="icon-img"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
-      <rect x="1" y="4" width="14" height="9" fill="#ede0bc" stroke="#1a1008" stroke-width="0.9"/>
-      <polygon points="1,4 8,9.5 15,4" fill="none" stroke="#1a1008" stroke-width="0.9" stroke-linejoin="round"/>
-      <rect x="7" y="10" width="2" height="2" fill="#c87820"/>
-    </svg></div>
+    <div class="icon-img"><img src="assets/icons/guestbook.png" alt=""></div>
     <div class="icon-label">Guestbook</div>
   </div>
   <div class="d-icon" id="icon-reading" tabindex="0" role="button" aria-label="Open Reading List" ondblclick="openReadingList()" onclick="selectIcon('icon-reading')">
-    <div class="icon-img"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
-      <rect x="2" y="10" width="12" height="3" fill="#c87820" stroke="#1a1008" stroke-width="0.7"/>
-      <rect x="3" y="6.5" width="10" height="3" fill="#1f7a8c" stroke="#1a1008" stroke-width="0.7"/>
-      <rect x="4" y="3" width="8" height="3" fill="#e8d8b0" stroke="#1a1008" stroke-width="0.7"/>
-    </svg></div>
+    <div class="icon-img"><img src="assets/icons/reading.png" alt=""></div>
     <div class="icon-label">Reading List</div>
   </div>
   <div class="d-icon" id="icon-terminal" tabindex="0" role="button" aria-label="Open Terminal" ondblclick="openTerminal()" onclick="selectIcon('icon-terminal')">
-    <div class="icon-img"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
-      <rect x="2" y="2" width="12" height="9" fill="#1a1008"/>
-      <rect x="3" y="3" width="10" height="7" fill="#1f7a8c"/>
-      <rect x="4" y="4.5" width="4" height="1" fill="#39ff14"/>
-      <rect x="6" y="11" width="4" height="2" fill="#5a4828"/>
-      <rect x="4" y="13" width="8" height="1" fill="#5a4828"/>
-    </svg></div>
+    <div class="icon-img"><img src="assets/icons/terminal.png" alt=""></div>
     <div class="icon-label">Terminal</div>
   </div>
   <div class="d-icon secret" id="icon-classified" tabindex="0" role="button" aria-label="Open classified" ondblclick="openClassified()" onclick="selectIcon('icon-classified')">
-    <div class="icon-img"><svg viewBox="0 0 16 16" shape-rendering="crispEdges">
-      <rect x="4" y="8" width="8" height="6" fill="#c87820" stroke="#1a1008" stroke-width="0.9"/>
-      <rect x="7" y="10" width="2" height="2" fill="#1a1008"/>
-      <rect x="5" y="3" width="2" height="4" fill="#c8b070" stroke="#1a1008" stroke-width="0.7"/>
-      <rect x="7" y="3" width="5" height="2" fill="#c8b070" stroke="#1a1008" stroke-width="0.7"/>
-      <rect x="10" y="3" width="2" height="3" fill="#c8b070" stroke="#1a1008" stroke-width="0.7"/>
-    </svg></div>
+    <div class="icon-img"><img src="assets/icons/root.png" alt=""></div>
     <div class="icon-label">root</div>
   </div>
 </div>

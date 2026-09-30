@@ -82,8 +82,7 @@ body.scanlines-off #crt-vignette { display: none !important; }
   flex-wrap: wrap;
   align-content: flex-start;
   gap: 10px;
-  background-image: radial-gradient(var(--desk-line) 1px, transparent 1.5px);
-  background-size: 24px 24px;
+  background: transparent center / cover no-repeat;
 }
 
 /* ── DESKTOP ICONS ── */
@@ -96,12 +95,13 @@ body.scanlines-off #crt-vignette { display: none !important; }
 .d-icon:hover   { border-color: #c8a040; background: rgba(200,160,64,.08); }
 .d-icon.selected{ border-color: var(--accent2); background: rgba(31,122,140,.18); }
 .d-icon .icon-img { font-size: 38px; filter: drop-shadow(1px 2px 0 #000000aa); }
-.d-icon .icon-img svg { width: 38px; height: 38px; display: block; }
+.d-icon .icon-img img { width: 48px; height: 48px; display: block; image-rendering: pixelated; }
 .d-icon .icon-label {
   font-family: 'Pixelify Sans', monospace;
   font-size: 15px; color: #d8c070;
-  text-align: center; line-height: 1.3; max-width: 78px;
-  text-shadow: 1px 1px 0 #000;
+  text-align: center; line-height: 1.3; max-width: 82px;
+  text-shadow: 1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
+  background: rgba(14,10,6,.6); padding: 0 2px;
 }
 
 /* ── WINDOWS ── */
@@ -567,7 +567,6 @@ input.form-input { overflow: hidden; text-overflow: ellipsis; }
   #desktop { padding: 8px; gap: 6px; }
   .d-icon { width: 64px; padding: 4px 2px; }
   .d-icon .icon-img { font-size: 30px; }
-  .d-icon .icon-img svg { width: 30px; height: 30px; }
   .d-icon .icon-label { font-size: 13px; max-width: 62px; }
   .window {
     width: calc(100vw - 8px) !important;
@@ -651,7 +650,7 @@ body.hacker {
   --text:#19ff5a; --muted:#16a83e; --accent:#39ff14; --accent2:#00e6c2;
   --input-bg:#04140a; --bar:#000700; --bar-txt:#00ff41; --folder-bg:#07220f;
 }
-body.hacker #desktop { background-image: none; z-index: 1; }
+body.hacker #desktop { background-image: none !important; z-index: 1; }
 body.hacker::after {
   background: repeating-linear-gradient(to bottom,
     transparent 0 2px, rgba(0,255,65,0.06) 2px, rgba(0,40,0,0.22) 3px, rgba(0,40,0,0.22) 4px);
@@ -662,3 +661,5 @@ body.hacker .icon-label, body.hacker #start-btn { text-shadow: 0 0 6px rgba(0,25
 body.hacker #sticky-note { background:#0a1a0c; border-color:#00aa30; color:#19ff5a; box-shadow:0 0 16px rgba(0,255,65,.2); }
 body.hacker #sticky-note::before { background:#003a00; border-bottom-color:#00aa30; }
 
+
+.wp-thumb { aspect-ratio: 16/9; border: 1px solid var(--btn-sh); background: center / cover no-repeat; cursor: var(--cur-point); padding: 0; }
