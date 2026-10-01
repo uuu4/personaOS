@@ -83,6 +83,7 @@ body.scanlines-off #crt-vignette { display: none !important; }
   align-content: flex-start;
   gap: 10px;
   background: transparent center / cover no-repeat;
+  image-rendering: pixelated;
 }
 
 /* ── DESKTOP ICONS ── */
@@ -662,4 +663,4 @@ body.hacker #sticky-note { background:#0a1a0c; border-color:#00aa30; color:#19ff
 body.hacker #sticky-note::before { background:#003a00; border-bottom-color:#00aa30; }
 
 
-.wp-thumb { aspect-ratio: 16/9; border: 1px solid var(--btn-sh); background: center / cover no-repeat; cursor: var(--cur-point); padding: 0; }
+.wp-thumb { aspect-ratio: 16/9; border: 1px solid var(--btn-sh); background: center / cover no-repeat; image-rendering: pixelated; cursor: var(--cur-point); padding: 0; }

@@ -932,7 +932,7 @@ const THEMES = {
   phosphorAmber: {'--desk':'#0a0600','--desk-line':'#150c00','--win-bg':'#1c1000','--win-parch':'#221400','--win-bdr':'#cc8800','--tb-from':'#2a1800','--tb-to':'#1a0e00','--tb-txt':'#ffaa00','--btn':'#3a2200','--btn-hi':'#503000','--btn-sh':'#aa6600','--text':'#ffaa00','--muted':'#aa6600','--accent':'#ffaa00','--input-bg':'#130e00','--bar':'#050300','--bar-txt':'#ffaa00','--folder-bg':'#1a1000'},
   moonlight:     {'--desk':'#0f0e1a','--desk-line':'#1a1830','--win-bg':'#e8e4f8','--win-parch':'#ddd8f0','--win-bdr':'#2a2050','--tb-from':'#2a2050','--tb-to':'#1a1440','--tb-txt':'#c0a8f0','--btn':'#c0b8e0','--btn-hi':'#d8d0f0','--btn-sh':'#6050a0','--text':'#1a1440','--muted':'#6050a0','--accent':'#8060d0','--input-bg':'#f0eeff','--bar':'#0a0820','--bar-txt':'#c0a8f0','--folder-bg':'#dcd8ee'},
   slate:         {'--desk':'#0d1117','--desk-line':'#161b22','--win-bg':'#e6edf3','--win-parch':'#d8e2ed','--win-bdr':'#1c2128','--tb-from':'#1c2128','--tb-to':'#0d1117','--tb-txt':'#79c0ff','--btn':'#c0cad6','--btn-hi':'#d8e4f0','--btn-sh':'#404a56','--text':'#1c2128','--muted':'#404a56','--accent':'#2f81f7','--input-bg':'#f0f6fc','--bar':'#010409','--bar-txt':'#79c0ff','--folder-bg':'#ccd8e4'},
-  vibrant:       {'--desk':'#1b1033','--desk-line':'#2a1a4d','--win-bg':'#fff6e0','--win-parch':'#ffe9c2','--win-bdr':'#1b1033','--tb-from':'#6a2c91','--tb-to':'#3b1a6b','--tb-txt':'#ffd23f','--btn':'#ffd8a8','--btn-hi':'#fff0d6','--btn-sh':'#b04a7a','--text':'#1b1033','--muted':'#6a4a8a','--accent':'#ff4f7b','--input-bg':'#fffaf0','--bar':'#140b26','--bar-txt':'#ffd23f','--folder-bg':'#ffe0b0'},
+  vibrant:       {'--desk':'#1a0f08','--desk-line':'#2a180c','--win-bg':'#fff3d6','--win-parch':'#ffe7b8','--win-bdr':'#2a1406','--tb-from':'#b5480f','--tb-to':'#7a2a08','--tb-txt':'#ffe066','--btn':'#ffd08a','--btn-hi':'#ffeac0','--btn-sh':'#a5521a','--text':'#2a1406','--muted':'#7a4a1e','--accent':'#ff7a1a','--input-bg':'#fffaf0','--bar':'#140a04','--bar-txt':'#ffc94a','--folder-bg':'#ffdca0'},
   terminal:      {'--desk':'#0c0c0c','--desk-line':'#1a1a1a','--win-bg':'#1e1e1e','--win-parch':'#252525','--win-bdr':'#444','--tb-from':'#2d2d2d','--tb-to':'#1a1a1a','--tb-txt':'#cccccc','--btn':'#3c3c3c','--btn-hi':'#505050','--btn-sh':'#888','--text':'#d4d4d4','--muted':'#888','--accent':'#569cd6','--input-bg':'#161616','--bar':'#0a0a0a','--bar-txt':'#cccccc','--folder-bg':'#252525'},
 };
 const THEME_META = {
@@ -942,7 +942,7 @@ const THEME_META = {
   moonlight:     {label:'Moonlight',      swatch:'#e8e4f8', dark:false},
   slate:         {label:'Slate',          swatch:'#e6edf3', dark:false},
   terminal:      {label:'Terminal Dark',  swatch:'#1e1e1e', dark:true},
-  vibrant:       {label:'Vibrant',        swatch:'#ff4f7b', dark:false},
+  vibrant:       {label:'Vibrant',        swatch:'#ff7a1a', dark:false},
 };
 
 function applyTheme(name){
@@ -950,7 +950,7 @@ function applyTheme(name){
   const root = document.documentElement;
   Object.entries(t).forEach(([k,v])=>root.style.setProperty(k,v));
   // Secondary accent: a teal "pop" only on parchment; other themes collapse to their own accent.
-  root.style.setProperty('--accent2', name==='parchment' ? '#1f7a8c' : name==='vibrant' ? '#1ec8c8' : (t['--accent']||'#1f7a8c'));
+  root.style.setProperty('--accent2', name==='parchment' ? '#1f7a8c' : name==='vibrant' ? '#00a6a6' : (t['--accent']||'#1f7a8c'));
   document.querySelectorAll('.d-icon .icon-img img').forEach(i=>i.src=i.src.replace(/icons(-vibrant)?\//, name==='vibrant'?'icons-vibrant/':'icons/'));
 }
 // Vibrant theme pairs with its own wallpapers; crossing that line swaps the wallpaper too.
