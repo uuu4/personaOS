@@ -1,4 +1,5 @@
 :root {
+  --spring: linear(0, 0.037, 0.128, 0.247, 0.378, 0.507, 0.625, 0.729, 0.816, 0.886, 0.939, 0.979, 1.006, 1.024, 1.034, 1.038, 1.038, 1.036, 1.031, 1.027, 1.021, 1.017, 1.012, 1.009, 1.006, 1.003, 1.002, 1, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 0.999, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1);
   --desk:      #17110b;
   --desk-line: #261d14;
   --win-bg:    #f3e8cc;
@@ -107,11 +108,12 @@ body.scanlines-off #crt-vignette { display: none !important; }
 
 /* ── WINDOWS ── */
 @keyframes winOpen {
-  0%,32%   { opacity:0; transform:translateY(-6px) scale(.97); }
-  33%,65%  { opacity:1; transform:translateY(0) scale(1.015); }
-  66%,100% { opacity:1; transform:translateY(0) scale(1); }
+  from { opacity: 0; scale: .88; translate: 0 22px; }
 }
-@keyframes winClose { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+@keyframes iconIn {
+  from { opacity: 0; scale: .8; translate: 0 14px; }
+}
+@keyframes winClose { to { opacity: 0; scale: .92; } }
 
 .window {
   position: absolute;
@@ -122,12 +124,13 @@ body.scanlines-off #crt-vignette { display: none !important; }
   border: 2px solid var(--win-bdr);
 
   box-shadow: 3px 3px 0 rgba(10,6,2,0.5), 7px 9px 22px rgba(0,0,0,0.4), inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh);
-  animation: winOpen .18s steps(3) both;
-  transition: box-shadow .1s steps(2);
+  animation: winOpen .65s var(--spring) backwards;
+  transition: box-shadow .42s var(--spring), scale .42s var(--spring);
   z-index: 10;
 }
 /* Picked up off the desktop while dragging/resizing — same hard-shadow language, just deeper */
 .window.lifted {
+  scale: 1.018;
   box-shadow: 6px 10px 0 rgba(10,6,2,0.55), 11px 18px 30px rgba(0,0,0,0.5), inset 1px 1px 0 var(--btn-hi), inset -1px -1px 0 var(--btn-sh);
 }
 .window.focused  { z-index: 100; }
@@ -141,7 +144,7 @@ body.scanlines-off #crt-vignette { display: none !important; }
   outline: 2px solid var(--accent2); outline-offset: 2px;
 }
 .window.minimized{ display: none; }
-.window.closing    { animation: winClose .10s steps(2) both; }
+.window.closing    { animation: winClose .2s ease-in both; pointer-events: none; }
 .window.maximized  { left:0!important;top:0!important;width:100vw!important;height:calc(100vh - 34px)!important;transition:none; }
 
 .titlebar {
@@ -562,6 +565,42 @@ input.form-input { overflow: hidden; text-overflow: ellipsis; }
 }
 #toast.show { opacity: 1; }
 
+/* ── INTRO (first visit) ── */
+#intro {
+  position: fixed; inset: 0; z-index: 99990;
+  background: radial-gradient(#2b2016 1px, transparent 1.5px) 0 0 / 22px 22px, #17110b;
+  transition: opacity .8s ease-out;
+}
+#intro.out { opacity: 0; pointer-events: none; }
+#intro-wm {
+  position: absolute; left: 50%; top: 50%; margin: 0;
+  translate: -50% -50%;
+  font: 600 clamp(2.4rem, 10vw, 6.5rem)/1 'Pixelify Sans', monospace;
+  letter-spacing: -.01em; white-space: nowrap; color: #f3e8cc; user-select: none;
+  transition: top 1s var(--spring);
+}
+#intro-wm b { color: #e8c060; font-weight: 600; }
+#intro.lift #intro-wm { top: calc(50% - 15vh); }
+#intro-sentence {
+  position: absolute; left: 50%; top: calc(50% + 2vh); translate: -50% 0;
+  width: min(46ch, calc(100% - 32px)); margin: 0; text-align: center;
+  font: 400 clamp(1.05rem, 2.6vw, 1.45rem)/1.45 'Pixelify Sans', monospace;
+  color: #c8a848; text-wrap: pretty;
+}
+#intro-sentence .w {
+  display: inline-block; opacity: 0; filter: blur(14px); translate: 0 .4em;
+  transition: opacity .9s ease-out, filter .9s ease-out, translate .9s var(--spring);
+  transition-delay: calc(var(--i) * 55ms);
+}
+#intro.read #intro-sentence .w { opacity: 1; filter: none; translate: 0 0; }
+#intro.out #intro-sentence, #intro.out #intro-wm { filter: blur(6px); transition: filter .6s ease-out, top 1s var(--spring); }
+#intro-skip {
+  position: absolute; left: 0; right: 0; bottom: 5vh; text-align: center;
+  font: 400 13px 'Pixelify Sans', monospace; color: #7a6030;
+}
+#desktop.intro-hold .d-icon { opacity: 0; }
+#desktop.intro-icons .d-icon { animation: iconIn .7s var(--spring) backwards; animation-delay: calc(var(--i, 0) * 80ms + 150ms); }
+
 /* ── MOBILE ── */
 @media (max-width: 720px) {
   body { user-select: text; }
@@ -591,7 +630,9 @@ input.form-input { overflow: hidden; text-overflow: ellipsis; }
 
 /* ── REDUCED MOTION ── */
 @media (prefers-reduced-motion: reduce) {
-  .window, .star.pop, #toast { animation: none !important; transition: none !important; }
+  .window, .star.pop, #toast, #intro { animation: none !important; transition: none !important; }
+  #intro { display: none; }
+  #desktop .d-icon { animation: none !important; opacity: 1 !important; }
 }
 
 /* ── SCREENSAVER ── */

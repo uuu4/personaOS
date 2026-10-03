@@ -410,7 +410,7 @@ function createWindow({id,title,icon='📄',width=480,height=440,x,y,buildBody,s
   playSound('open');
   return win;
 }
-function closeWindow(id){const w=openWindows[id];if(!w)return;playSound('close');w.classList.add('closing');setTimeout(()=>{w.remove();delete openWindows[id];removeTaskbarBtn(id);},100);}
+function closeWindow(id){const w=openWindows[id];if(!w)return;playSound('close');w.classList.add('closing');setTimeout(()=>{w.remove();delete openWindows[id];removeTaskbarBtn(id);},200);}
 function minimizeWindow(id){const w=openWindows[id];if(!w)return;playSound('minimize');w.classList.add('minimized');updateTaskbarBtn(id,true);}
 function restoreWindow(id){const w=openWindows[id];if(!w)return;w.classList.remove('minimized');bringToFront(w);updateTaskbarBtn(id,false);}
 
@@ -1425,4 +1425,44 @@ license: not much of one`,
       else openTerminal();
     }
   });
+})();
+
+
+// ── INTRO (first visit only) ──────────────────────────────
+// Wordmark lifts, one sentence resolves word by word, then the overlay dissolves and the icons spring in.
+// Skipped on repeat visits, deep links, reduced motion, and on any click/key.
+(function(){
+  const desktop=document.getElementById('desktop');
+  if(!desktop) return;
+  desktop.querySelectorAll('.d-icon').forEach((ic,i)=>ic.style.setProperty('--i',i));
+  const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const deep=new URLSearchParams(location.search).get('paper');
+  if(reduce||deep||lsGet('pl-intro-seen')==='1') return;
+  lsSet('pl-intro-seen','1');
+
+  const SENTENCE='internetpersona is the personal site of Ali Emre Aydın, a student researcher in quantum machine learning. Open anything on the desk.';
+  const el=document.createElement('div'); el.id='intro';
+  el.innerHTML='<h1 id="intro-wm" aria-label="internetpersona">internet<b>persona</b></h1><p id="intro-sentence"></p><div id="intro-skip">click to skip</div>';
+  const p=el.querySelector('#intro-sentence');
+  SENTENCE.split(' ').forEach((word,i,a)=>{
+    const s=document.createElement('span'); s.className='w'; s.style.setProperty('--i',i); s.textContent=word;
+    p.appendChild(s); if(i<a.length-1) p.appendChild(document.createTextNode(' '));
+  });
+  desktop.classList.add('intro-hold');
+  document.body.appendChild(el);
+
+  const timers=[]; let done=false;
+  const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
+  function finish(){
+    if(done) return; done=true;
+    timers.forEach(clearTimeout);
+    document.removeEventListener('keydown',finish); el.removeEventListener('pointerdown',finish);
+    el.classList.add('out');
+    desktop.classList.remove('intro-hold'); desktop.classList.add('intro-icons');
+    setTimeout(()=>{ el.remove(); desktop.classList.remove('intro-icons'); },1400);
+  }
+  el.addEventListener('pointerdown',finish);
+  document.addEventListener('keydown',finish);
+  const start=()=>{ later(()=>el.classList.add('lift'),400); later(()=>el.classList.add('read'),900); later(finish,4600); };
+  if(document.fonts&&document.fonts.ready){ let go=false; const once=()=>{ if(!go){ go=true; start(); } }; document.fonts.ready.then(once); setTimeout(once,1200); } else start();
 })();
