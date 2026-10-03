@@ -1428,17 +1428,16 @@ license: not much of one`,
 })();
 
 
-// ── INTRO (first visit only) ──────────────────────────────
+// ── INTRO (every load) ──────────────────────────────
 // Wordmark lifts, one sentence resolves word by word, then the overlay dissolves and the icons spring in.
-// Skipped on repeat visits, deep links, reduced motion, and on any click/key.
+// Skipped on deep links, reduced motion, and on any click/key.
 (function(){
   const desktop=document.getElementById('desktop');
   if(!desktop) return;
   desktop.querySelectorAll('.d-icon').forEach((ic,i)=>ic.style.setProperty('--i',i));
   const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   const deep=new URLSearchParams(location.search).get('paper');
-  if(reduce||deep||lsGet('pl-intro-seen')==='1') return;
-  lsSet('pl-intro-seen','1');
+  if(reduce||deep) return;
 
   const SENTENCE='internetpersona is the personal site of Ali Emre Aydın, a student researcher in quantum machine learning. Open anything on the desk.';
   const el=document.createElement('div'); el.id='intro';
