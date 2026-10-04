@@ -1351,6 +1351,7 @@ function openClassified(){
   sudo          give it a shot
   rm -rf thesis didn't even dare
   coffee        ☕
+  restart       reboot the desktop (or: reboot)
   clear         clear the screen
 <span class="t-dim">─────────────────────────────
   [ 1 command not listed — earn it ]</span>`,
@@ -1377,6 +1378,8 @@ license: not much of one`,
     unlock:        ()=>{ activateHacker(); return ACCESS_GRANTED; },
     decrypt: ()=> document.body.classList.contains('hacker') ? DECRYPTED : `<span class="t-err">decrypt: nothing to decrypt — system locked.</span>`,
     lock: ()=>{ if(!document.body.classList.contains('hacker')) return `<span class="t-dim">already locked.</span>`; deactivateHacker(); return `<span class="t-dim">re-securing... lights off.</span>`; },
+    restart: ()=>{ setTimeout(()=>window.restartOS&&window.restartOS(),350); return `<span class="t-dim">rebooting...</span>`; },
+    reboot:  ()=>{ setTimeout(()=>window.restartOS&&window.restartOS(),350); return `<span class="t-dim">rebooting...</span>`; },
     exit: ()=>'__EXIT__',
     quit: ()=>'__EXIT__',
   };
@@ -1428,40 +1431,58 @@ license: not much of one`,
 })();
 
 
-// ── INTRO (every load) ──────────────────────────────
-// Wordmark lifts, one sentence resolves word by word, then the overlay dissolves and the icons spring in.
-// Skipped on deep links, reduced motion, and on any click/key.
+// ── INTRO + RESTART ───────────────────────────────────────
+// Wordmark lifts, one sentence resolves word by word, then the overlay dissolves and the icons spring in. Plays on every load; skipped on ?paper= deep links,
+// reduced motion, and on any click/key. Start menu → Restart (or `reboot` in the terminal) collapses the
+// screen to a line and replays it.
 (function(){
   const desktop=document.getElementById('desktop');
   if(!desktop) return;
   desktop.querySelectorAll('.d-icon').forEach((ic,i)=>ic.style.setProperty('--i',i));
-  const reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const deep=new URLSearchParams(location.search).get('paper');
-  if(reduce||deep) return;
-
+  const reduced=()=>window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   const SENTENCE='internetpersona is the personal site of Ali Emre Aydın, a student researcher in quantum machine learning. Open anything on the desk.';
-  const el=document.createElement('div'); el.id='intro';
-  el.innerHTML='<h1 id="intro-wm" aria-label="internetpersona">internet<b>persona</b></h1><p id="intro-sentence"></p><div id="intro-skip">click to skip</div>';
-  const p=el.querySelector('#intro-sentence');
-  SENTENCE.split(' ').forEach((word,i,a)=>{
-    const s=document.createElement('span'); s.className='w'; s.style.setProperty('--i',i); s.textContent=word;
-    p.appendChild(s); if(i<a.length-1) p.appendChild(document.createTextNode(' '));
-  });
-  desktop.classList.add('intro-hold');
-  document.body.appendChild(el);
 
-  const timers=[]; let done=false;
-  const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
-  function finish(){
-    if(done) return; done=true;
-    timers.forEach(clearTimeout);
-    document.removeEventListener('keydown',finish); el.removeEventListener('pointerdown',finish);
-    el.classList.add('out');
-    desktop.classList.remove('intro-hold'); desktop.classList.add('intro-icons');
-    setTimeout(()=>{ el.remove(); desktop.classList.remove('intro-icons'); },1400);
+  function runIntro(){
+    if(document.getElementById('intro')) return;
+    const el=document.createElement('div'); el.id='intro';
+    el.innerHTML='<h1 id="intro-wm" aria-label="internetpersona">internet<b>persona</b></h1><p id="intro-sentence"></p><div id="intro-skip">click to skip</div>';
+    const p=el.querySelector('#intro-sentence');
+    SENTENCE.split(' ').forEach((word,i,a)=>{
+      const s=document.createElement('span'); s.className='w'; s.style.setProperty('--i',i); s.textContent=word;
+      p.appendChild(s); if(i<a.length-1) p.appendChild(document.createTextNode(' '));
+    });
+    desktop.classList.remove('intro-icons'); desktop.classList.add('intro-hold');
+    document.body.appendChild(el);
+
+    const timers=[]; let done=false;
+    const later=(fn,ms)=>timers.push(setTimeout(fn,ms));
+    function finish(){
+      if(done) return; done=true;
+      timers.forEach(clearTimeout);
+      document.removeEventListener('keydown',finish); el.removeEventListener('pointerdown',finish);
+      el.classList.add('out');
+      desktop.classList.remove('intro-hold'); desktop.classList.add('intro-icons');
+      setTimeout(()=>{ el.remove(); desktop.classList.remove('intro-icons'); },1500);
+    }
+    el.addEventListener('pointerdown',finish);
+    document.addEventListener('keydown',finish);
+    const start=()=>{ later(()=>el.classList.add('lift'),400); later(()=>el.classList.add('read'),900); later(finish,4600); };
+    if(document.fonts&&document.fonts.ready){ let go=false; const once=()=>{ if(!go){ go=true; start(); } }; document.fonts.ready.then(once); setTimeout(once,1200); } else start();
   }
-  el.addEventListener('pointerdown',finish);
-  document.addEventListener('keydown',finish);
-  const start=()=>{ later(()=>el.classList.add('lift'),400); later(()=>el.classList.add('read'),900); later(finish,4600); };
-  if(document.fonts&&document.fonts.ready){ let go=false; const once=()=>{ if(!go){ go=true; start(); } }; document.fonts.ready.then(once); setTimeout(once,1200); } else start();
+
+  let restarting=false;
+  window.restartOS=function(){
+    if(restarting) return;
+    Object.keys(openWindows).forEach(id=>closeWindow(id));
+    if(typeof closeStartMenu==='function') closeStartMenu();
+    if(reduced()) return;
+    restarting=true;
+    const off=document.createElement('div'); off.id='crt-off'; off.innerHTML='<i></i>';
+    document.body.appendChild(off);
+    setTimeout(()=>{ runIntro(); },1050);
+    setTimeout(()=>off.classList.add('fade'),1150);
+    setTimeout(()=>{ off.remove(); restarting=false; },1600);
+  };
+
+  if(!reduced()&&!new URLSearchParams(location.search).get('paper')) runIntro();
 })();

@@ -566,12 +566,14 @@ input.form-input { overflow: hidden; text-overflow: ellipsis; }
 #toast.show { opacity: 1; }
 
 /* ── INTRO (first visit) ── */
-#intro {
-  position: fixed; inset: 0; z-index: 99990;
+#intro { position: fixed; inset: 0; z-index: 99990; }
+#intro::before {
+  content: ''; position: absolute; inset: 0;
   background: radial-gradient(#2b2016 1px, transparent 1.5px) 0 0 / 22px 22px, #17110b;
   transition: opacity .8s ease-out;
 }
-#intro.out { opacity: 0; pointer-events: none; }
+#intro.out { pointer-events: none; }
+#intro.out::before { opacity: 0; }
 #intro-wm {
   position: absolute; left: 50%; top: 50%; margin: 0;
   translate: -50% -50%;
@@ -593,7 +595,24 @@ input.form-input { overflow: hidden; text-overflow: ellipsis; }
   transition-delay: calc(var(--i) * 55ms);
 }
 #intro.read #intro-sentence .w { opacity: 1; filter: none; translate: 0 0; }
-#intro.out #intro-sentence, #intro.out #intro-wm { filter: blur(6px); transition: filter .6s ease-out, top 1s var(--spring); }
+#intro.out #intro-sentence, #intro.out #intro-wm { filter: blur(6px); transition: filter .6s ease-out; }
+#intro.out #intro-wm { opacity: 0; transition: filter .6s ease-out, opacity .6s ease-out; }
+/* Restart: screen collapses to a line, then the intro replays */
+#crt-off { position: fixed; inset: 0; z-index: 99995; pointer-events: all; transition: opacity .35s ease-out; }
+#crt-off.fade { opacity: 0; pointer-events: none; }
+#crt-off::before, #crt-off::after {
+  content: ''; position: absolute; left: 0; right: 0; height: 50%; background: #000;
+  animation: crtHalf .42s cubic-bezier(.7, 0, .9, .5) both;
+}
+#crt-off::before { top: 0; transform-origin: top; }
+#crt-off::after { bottom: 0; transform-origin: bottom; }
+#crt-off i {
+  position: absolute; left: 0; right: 0; top: 50%; height: 3px; margin-top: -1px;
+  background: #f3e8cc; box-shadow: 0 0 14px 3px rgba(243, 232, 204, .8);
+  opacity: 0; animation: crtLine .7s ease-in .3s both;
+}
+@keyframes crtHalf { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes crtLine { 0% { opacity: 1; transform: scaleX(1); } 70% { opacity: 1; transform: scaleX(.02); } 100% { opacity: 0; transform: scaleX(0); } }
 #intro-skip {
   position: absolute; left: 0; right: 0; bottom: 5vh; text-align: center;
   font: 400 13px 'Pixelify Sans', monospace; color: #7a6030;
@@ -631,7 +650,7 @@ input.form-input { overflow: hidden; text-overflow: ellipsis; }
 /* ── REDUCED MOTION ── */
 @media (prefers-reduced-motion: reduce) {
   .window, .star.pop, #toast, #intro { animation: none !important; transition: none !important; }
-  #intro { display: none; }
+  #intro, #crt-off { display: none; }
   #desktop .d-icon { animation: none !important; opacity: 1 !important; }
 }
 
