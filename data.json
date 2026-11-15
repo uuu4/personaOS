@@ -110,16 +110,16 @@
   ],
   "cv": {
     "name": "Ali Emre Aydin",
-    "role": "research fellow @ freya (YC summer 2S)",
+    "role": "research fellow @ freya (YC S25)",
     "avatar": "👨‍🏫",
-    "bio": "i like computers",
-    "affiliation": "CS Student / senior year",
+    "bio": "i like computers. lately: quantum kernels, vision-language models, and building heyadmit.",
+    "affiliation": "cs senior @ istanbul medeniyet university",
     "email": "aliemreaydin111@gmail.com",
     "website": "internetpersona.net",
     "interests": "quantum computing,deep learning,machine learning,competitive programming",
     "cvUrl": "https://personaos-publish.uuu4.workers.dev/cv"
   },
-  "note": "personaOS v1.1\ncreated by github.com/uuu4\nI will be posting announcements here :)\n\nedit: hey! i just submitted 2 papers: one of it is my bachelor thesis and the other one is a medical paper which we worken on a machine learning to detect anomalies.\n\n",
+  "note": "personaOS v1.2\ncreated by github.com/uuu4\n\nthesis done (nov '26), paper under review.\nstill doing my master's first.\n",
   "readingList": [
     {
       "id": "r1786827453371",
@@ -150,6 +150,68 @@
       "id": "r1786827650439",
       "title": "sapiens",
       "link": "https://www.amazon.com.tr/Sapiens-Humankind-Yuval-Noah-Harari/dp/1786141671"
+    }
+  ],
+  "work": [
+    {
+      "id": "w-qk",
+      "kind": "paper",
+      "title": "Mitigating Exponential Concentration in Quantum Kernels by Label-Free Capacity-Based Selection of Pauli Terms",
+      "authors": "A. E. Aydın, L. Akgün, A. Daşkın",
+      "venue": "Quantum Machine Intelligence (Springer)",
+      "status": "under review",
+      "year": 2026,
+      "blurb": "my bachelor's thesis, about keeping quantum kernels from collapsing as qubits grow. details once it's published.",
+      "link": "",
+      "linkLabel": ""
+    },
+    {
+      "id": "w-qv",
+      "kind": "paper",
+      "title": "Quantum Voting Protocol for Centralized and Distributed Voting Based on Phase-Flip Counting",
+      "authors": "A. E. Aydın, A. Daşkın",
+      "venue": "IET Quantum Communication",
+      "status": "accepted",
+      "year": 2025,
+      "blurb": "anonymous voting where each vote is a phase flip on an entangled state, and interference does the tallying instead of counting one by one.",
+      "link": "https://arxiv.org/abs/2510.15243",
+      "linkLabel": "arXiv"
+    },
+    {
+      "id": "w-ha",
+      "kind": "project",
+      "title": "heyAdmit",
+      "status": "building",
+      "year": 2026,
+      "blurb": "a scholarship and admissions assistant for turkish students going abroad.",
+      "link": "",
+      "linkLabel": ""
+    },
+    {
+      "id": "w-lr",
+      "kind": "project",
+      "title": "Turkish lipreading prototype",
+      "status": "closed",
+      "year": 2026,
+      "blurb": "microsoft-mentored research on ai for accessibility: mouth a word, the screen reads your lips. works on a small closed vocabulary.",
+      "link": "https://uuu4--lipreading-prototip-web.us-east.modal.run",
+      "linkLabel": "try it"
+    }
+  ],
+  "posts": [
+    {
+      "id": "thesis-explained",
+      "title": "my bachelor's thesis, explained without the scary words",
+      "date": "2026-11-15",
+      "summary": "what exponential concentration in quantum kernels is, plus a deliberately short look at my thesis while the paper is under review.",
+      "body": "my bachelor's thesis is done, and the paper that came out of it is under review at Quantum Machine Intelligence. it's not public yet, so this post stays on the surface on purpose. the details can wait until it's out.\n\nmy advisor is Assoc. Prof. Ammar Daskin, and my co-author is Latif Akgün.\n\n## the problem, without the scary words\n\na kernel is just a similarity score. you take two data points, you ask \"how alike are these?\", and you get a number. a model like an SVM learns everything from a big table of those numbers.\n\nin a quantum kernel, each data point becomes a quantum state, and with n qubits that state lives in a space with 2ⁿ dimensions. that is a huge room. and in a huge room, two random-ish directions are almost always close to perpendicular. so the similarity between any two different points is almost zero.\n\nnow the table has 1 on the diagonal (everything is similar to itself) and nearly the same tiny number everywhere else. the model looks at it and sees no structure. every point is a stranger to every other point. people call this **exponential concentration**: the values collapse towards one number, exponentially fast as you add qubits.\n\nand you only get a finite number of measurements. once the differences between points are smaller than the noise, there is nothing left to learn. more qubits, more power, less signal. funny.\n\n## what we did, the short version\n\nthe thesis asks a simple question: does the kernel really need all of its parts? we keep the parts that carry the structure and leave the rest out, and we do it without ever looking at the labels, so nothing secretly peeks at the answers.\n\nthat's all i'll say for now. how we pick the parts, and how well it works, is for the paper.\n\n## what the year looked like\n\nmy first proposal didn't survive the summer. it turned out to be something that already existed under another name. annoying, but i'd rather find that out in august than in a review. a lot of the thesis after that was learning one small piece at a time and writing it down.\n\nfinishing is quieter than i expected, mostly a pdf. but i can now explain the problem with a room full of perpendicular arrows, which i could not do a year ago. i'll take that. once the paper is out, i'll come back and write the real version of this post.\n"
+    },
+    {
+      "id": "lipreading-lessons",
+      "title": "what a turkish lipreading model taught me about shrinking problems",
+      "date": "2026-11-15",
+      "summary": "notes from a closed lipreading project, why open-vocabulary lipreading is brutal, and why picking a smaller problem got me further than adding more data.",
+      "body": "i just closed my lipreading project. it started in March as Microsoft-mentored research on AI for accessibility: a silent communication tool for people with speech impairments, built by my team and me. the idea is simple. you mouth a word, the computer reads your lips, and the word shows up. no voice needed.\n\nthe working prototype is still online ([try it here](https://uuu4--lipreading-prototip-web.us-east.modal.run)), and i'm leaving it up. here is what i actually learned, mostly the hard way.\n\n## open vocabulary is brutal\n\nour first real model was supposed to read free sentences in Turkish. we took a model pretrained on English lipreading and fine-tuned it on Turkish videos. the result was a word error rate of 87.1%. if you are not used to that number: it means the model gets roughly 9 words out of 10 wrong.\n\nbefore the run i had guessed 55 to 75% error, then bumped it to 65 to 80%. i was off by a lot, and that was not the only prediction i got wrong that month. my pattern was always the same: i noticed one true thing and then inflated it into a big promise.\n\nwhy is it so hard? because lips are a bad channel. many different sounds look identical from outside. try saying \"bir\", \"ben\", \"bin\" and \"biz\" in front of a mirror. in our data about a quarter of words had a lookalike. it gets worse in Turkish, where words are built by sticking endings onto a root. \"olduğu\" and \"olduğunu\" share the whole beginning, and the part that tells them apart is a tiny quick movement at the very end. the model confused exactly those pairs, again and again. that was weirdly satisfying, in a sad way: its mistakes were not random, they were the same ones a human would make.\n\n## the thing that surprised me\n\nfor months i was chasing more data. more hours, more speakers. then one training run made me realise that the amount of data was not what was blocking us.\n\nso i asked a different question. what does a person who cannot speak actually need? not Turkish literature. they need to say \"water\", \"it hurts\", \"toilet\". a small, fixed list.\n\nso we switched to a **closed vocabulary**: the model only chooses from a list of words, instead of spelling out anything. same frozen model, with just a tiny classifier on top. it is a different question, not a different brain. on a list of 20 distinct words it reached 67%, while the same model on free speech was getting maybe one word in eight right. nothing about the model changed. the problem got smaller.\n\nthis is the lesson i will keep. before you make the model stronger, ask if you are solving a problem that is too big. a lot of the \"intelligence\" of the final prototype is just the person who picks the word list.\n\ntwo details helped. long words are much easier than short ones, because there is more mouth movement to see. and whole phrases beat single words by a huge margin, again for the same reason.\n\n## what i'd do differently\n\n- record the real vocabulary earlier. our training videos were not people saying \"water\" on purpose. the data i needed was small and specific, and i collected the wrong kind first.\n- decide on the closed vocabulary much earlier, instead of after months of collecting data.\n- measure with more care. i once reported a nice improvement from 150 test examples. with 500 it shrank to about half. small samples lie.\n- test on people who are not me as soon as possible. i only measured the final prototype on myself, which is a real limit, and i'd rather say it out loud.\n\nthe project is closed now. it is not a product and i won't pretend it is. but it works for a small word list, and it taught me to shrink the problem before scaling the model.\n"
     }
   ]
 }

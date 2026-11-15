@@ -105,25 +105,28 @@ function publishToWorker(){
   if(!pass){ toast('Session expired — log in again'); setAdmin(false); openLoginWindow(); return; }
   themedPrompt('Commit message:','Update via personaOS',msg=>doPublish(msg,pass));
 }
+// Everything the site publishes. `work` has no editor, so it round-trips untouched.
+function publishedData(){ return { papers, cv, note: stickyNote, readingList, work, posts }; }
 async function doPublish(msg,pass){
   toast('Publishing…');
   try {
     const r = await fetch(WORKER_URL.replace(/\/$/,'') + '/publish', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ password: pass, data: { papers, cv, note: stickyNote, readingList }, message: msg })
+      body: JSON.stringify({ password: pass, data: publishedData(), message: msg })
     });
     if(r.ok){
       // Clear local draft — the commit IS the published state.
       // Don't re-fetch data.json: GitHub Pages takes 30-90 sec to redeploy,
       // so bootData() would pull stale remote and clobber in-memory cv/papers.
-      lsRemove(STORE_KEY); lsRemove(CV_KEY); lsRemove(NOTE_KEY); lsRemove(RL_KEY);
+      lsRemove(STORE_KEY); lsRemove(CV_KEY); lsRemove(NOTE_KEY); lsRemove(RL_KEY); lsRemove(POSTS_KEY);
       renderFolderGrid(); renderFolderToolbar(); refreshOpenPapers();
       if(document.getElementById('cv-body')) renderCV();
       if(document.getElementById('rl-body')) renderReadingList();
+      renderPosts();
       renderStickyNote();
       toast('Committed ✓ — deploying…');
-      pollDeploy({ papers, cv, note: stickyNote, readingList });
+      pollDeploy(publishedData());
     } else if(r.status===401){
       try { sessionStorage.removeItem(PW_SESSION_KEY); } catch(e){}
       setAdmin(false);
@@ -196,12 +199,15 @@ async function bootData(){
     cv          = tryParse(CV_KEY)    || (remoteSnapshot && remoteSnapshot.cv)          || { ...DEFAULT_CV };
     stickyNote  = tryParse(NOTE_KEY)  ?? (remoteSnapshot && remoteSnapshot.note)        ?? '';
     readingList = tryParse(RL_KEY)    || (remoteSnapshot && remoteSnapshot.readingList) || [];
+    posts       = tryParse(POSTS_KEY) || (remoteSnapshot && remoteSnapshot.posts)       || [];
   } else {
     papers      = (remoteSnapshot && remoteSnapshot.papers)      || DEFAULT_PAPERS;
     cv          = (remoteSnapshot && remoteSnapshot.cv)          || { ...DEFAULT_CV };
     stickyNote  = (remoteSnapshot && remoteSnapshot.note)        || '';
     readingList = (remoteSnapshot && remoteSnapshot.readingList) || [];
+    posts       = (remoteSnapshot && remoteSnapshot.posts)       || [];
   }
+  work = (remoteSnapshot && remoteSnapshot.work) || [];
   renderStickyNote();
 }
 
@@ -212,7 +218,7 @@ function saveNote()        { if(isAdmin()) lsSet(NOTE_KEY,  JSON.stringify(stick
 function saveReadingList() { if(isAdmin()) lsSet(RL_KEY,    JSON.stringify(readingList)); }
 
 function exportData(){
-  const payload = { papers, cv, readingList, exportedAt: new Date().toISOString() };
+  const payload = { ...publishedData(), exportedAt: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -224,17 +230,18 @@ function exportData(){
 
 function pullRemote(){
   themedConfirm('Discard your local draft and pull data.json from the server?',async ()=>{
-    lsRemove(STORE_KEY); lsRemove(CV_KEY); lsRemove(RL_KEY);
+    lsRemove(STORE_KEY); lsRemove(CV_KEY); lsRemove(RL_KEY); lsRemove(POSTS_KEY);
     await bootData();
     renderFolderGrid(); renderFolderToolbar(); refreshOpenPapers();
     if(document.getElementById('cv-body')) renderCV();
     if(document.getElementById('rl-body')) renderReadingList();
+    renderPosts(); renderWork();
     const fw = openWindows['reviews']; if(fw) fw.querySelector('.window-statusbar').textContent=reviewsStatusText();
     toast(remoteSnapshot ? 'Pulled remote ✓' : 'No data.json on server — using defaults');
   },{confirmLabel:'Discard & Pull'});
 }
 
-function hasLocalDraft(){ return !!(lsGet(STORE_KEY) || lsGet(CV_KEY) || lsGet(RL_KEY)); }
+function hasLocalDraft(){ return !!(lsGet(STORE_KEY) || lsGet(CV_KEY) || lsGet(RL_KEY) || lsGet(POSTS_KEY)); }
 
 // ── TAG COLORS ────────────────────────────────────────────
 const TAG_PALETTE = [
@@ -809,6 +816,139 @@ function deleteReadingItem(id){
   },{confirmLabel:'Remove'});
 }
 
+// ── WORK ──────────────────────────────────────────────────
+// Papers + projects. Read-only on the site; edited straight in data.json (changes rarely).
+let work = [];             // [{id,kind:'paper'|'project',title,authors,venue,status,year,blurb,link,linkLabel}]
+function openWork(){
+  createWindow({id:'work',title:'Work',icon:'⚛️',width:500,height:520,statusText:`${work.length} items`,buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body" id="work-body"></div>`;
+    renderWork();
+  }});
+}
+function renderWork(){
+  const el=document.getElementById('work-body'); if(!el) return;
+  const group=(kind,label)=>{
+    const items=work.filter(w=>w.kind===kind); if(!items.length) return '';
+    return `<div class="section-label" style="margin-bottom:6px">${label}</div>`+items.map(w=>`
+      <div class="work-item">
+        <div class="work-head"><span class="work-title">${esc(w.title)}</span>${w.status?`<span class="work-status">${esc(w.status)}</span>`:''}</div>
+        <div class="work-meta">${[w.authors,w.venue,w.year].filter(Boolean).map(esc).join(' · ')}</div>
+        ${w.blurb?`<div class="work-blurb">${esc(w.blurb)}</div>`:''}
+        ${w.link?`<a class="work-link" href="${esc(w.link)}" target="_blank" rel="noopener noreferrer">→ ${esc(w.linkLabel||'link')}</a>`:''}
+      </div>`).join('');
+  };
+  const groups=[group('paper','PAPERS'),group('project','PROJECTS')].filter(Boolean);
+  el.innerHTML = groups.length ? groups.join('<hr class="divider">') : `<div class="empty-note">nothing here yet.</div>`;
+}
+
+// ── POSTS (blog) ──────────────────────────────────────────
+// Written in the admin editor, saved as a local draft like the other lists, shipped with 🚀 Publish.
+// Body is a tiny markdown subset: paragraphs, "## " headings, "- " lists, **bold**, `code`, [text](https://…).
+const POSTS_KEY = 'pl-posts-v1';
+let posts = [];            // [{id,title,date,summary,body}]
+function savePosts(){ if(isAdmin()) lsSet(POSTS_KEY, JSON.stringify(posts)); }
+function postsStatusText(){ return `${posts.length} post${posts.length===1?'':'s'}`; }
+function sortedPosts(){ return [...posts].sort((a,b)=>String(b.date).localeCompare(String(a.date))); }
+function mdInline(s){ // s is already escaped
+  return s.replace(/`([^`]+)`/g,'<code>$1</code>')
+          .replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>')
+          .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+}
+function mdToHtml(src){
+  return String(src||'').replace(/\r/g,'').split(/\n{2,}/).map(b=>{
+    let lines=b.split('\n').filter(l=>l.trim()); if(!lines.length) return '';
+    let head='';
+    if(/^## /.test(lines[0])){ head=`<h3>${mdInline(esc(lines[0].slice(3)))}</h3>`; lines=lines.slice(1); if(!lines.length) return head; }
+    if(lines.every(l=>/^- /.test(l))) return head+`<ul>${lines.map(l=>`<li>${mdInline(esc(l.slice(2)))}</li>`).join('')}</ul>`;
+    return head+`<p>${lines.map(l=>mdInline(esc(l))).join('<br>')}</p>`;
+  }).join('');
+}
+function openPosts(){
+  createWindow({id:'posts',title:'Posts',icon:'📜',width:440,height:480,statusText:postsStatusText(),buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body" id="posts-body"></div>`;
+    renderPosts();
+  }});
+}
+function renderPosts(){
+  const el=document.getElementById('posts-body'); if(!el) return;
+  const admin=isAdmin();
+  const tools = admin ? `
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button class="win-btn" onclick="openPostEditor()">[ New Post ]</button>
+      ${WORKER_URL?`<button class="win-btn" onclick="publishToWorker()" title="Commit data.json via worker">🚀 Publish</button>`:''}
+    </div>
+    <hr class="divider">` : '';
+  const list = posts.length ? sortedPosts().map(p=>`
+    <button class="post-row" data-id="${esc(p.id)}" onclick="openPost(this.dataset.id)">
+      <span class="post-date">${esc(p.date)}</span>
+      <span class="post-title">${esc(p.title)}</span>
+      ${p.summary?`<span class="post-summary">${esc(p.summary)}</span>`:''}
+    </button>`).join('') : `<div class="empty-note">no posts yet.</div>`;
+  el.innerHTML = tools + list;
+  const w=openWindows['posts']; if(w) w.querySelector('.window-statusbar').textContent=postsStatusText();
+}
+function openPost(id){
+  const p=posts.find(x=>x.id===id); if(!p) return;
+  createWindow({id:'post-'+id,title:p.title,icon:'📜',width:560,height:560,statusText:p.date,buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body post-body" id="pbody-${esc(id)}"></div>`;
+    renderPostBody(p);
+  }});
+}
+function renderPostBody(p){
+  const el=document.getElementById('pbody-'+p.id); if(!el) return;
+  const id=esc(p.id);
+  el.innerHTML=`
+    <h2 class="post-h">${esc(p.title)}</h2>
+    <div class="post-date">${esc(p.date)}</div>
+    ${isAdmin()?`<div style="display:flex;gap:6px;margin:8px 0">
+      <button class="win-btn" data-id="${id}" onclick="openPostEditor(this.dataset.id)">[ edit ]</button>
+      <button class="win-btn danger" data-id="${id}" onclick="deletePost(this.dataset.id)">delete</button></div>`:''}
+    <div class="post-content">${mdToHtml(p.body)}</div>
+    <div class="post-foot"><button class="win-btn" data-id="${id}" onclick="copyPostLink(this.dataset.id)">🔗 copy link</button></div>`;
+}
+function postSlug(title){
+  const base=(String(title).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/ı/g,'i')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,48))||'post';
+  let s=base,i=2; while(posts.some(p=>p.id===s)) s=`${base}-${i++}`;
+  return s;
+}
+function openPostEditor(id){
+  if(!isAdmin()){ toast('Admin only'); return; }
+  const p = id ? posts.find(x=>x.id===id) : null;
+  const wid = 'post-editor';
+  if(openWindows[wid]){ toast('Finish the open editor first'); bringToFront(openWindows[wid]); return; }
+  createWindow({id:wid,title:p?'Edit Post':'New Post',icon:'✏️',width:560,height:600,statusText:'markdown: ## heading · - list · **bold** · [text](https://…)',buildBody:inner=>{
+    inner.innerHTML=`<div class="window-body">
+      <div class="form-row"><label>Title *</label><input class="form-input" id="pe-title" value="${esc(p?.title||'')}"></div>
+      <div class="form-row"><label>Date</label><input class="form-input" id="pe-date" type="date" value="${esc(p?.date||new Date().toISOString().slice(0,10))}"></div>
+      <div class="form-row"><label>Summary (one line)</label><input class="form-input" id="pe-summary" value="${esc(p?.summary||'')}"></div>
+      <div class="form-row"><label>Body</label><textarea class="cv-textarea post-editor-area" id="pe-body">${esc(p?.body||'')}</textarea></div>
+      <div style="display:flex;gap:6px"><button class="win-btn" data-id="${esc(p?.id||'')}" onclick="savePostEditor(this.dataset.id)">[ Save ]</button>
+      <button class="win-btn" onclick="closeWindow('post-editor')">Cancel</button></div>
+    </div>`;
+  }});
+}
+function savePostEditor(id){
+  const v=k=>document.getElementById(k)?.value ?? '';
+  const title=v('pe-title').trim(); if(!title){ toast('Title is required!'); return; }
+  const fields={title, date:v('pe-date').trim()||new Date().toISOString().slice(0,10), summary:v('pe-summary').trim(), body:v('pe-body')};
+  let p = id ? posts.find(x=>x.id===id) : null;
+  if(p) Object.assign(p,fields); else { p={id:postSlug(title),...fields}; posts.push(p); }
+  savePosts(); renderPosts(); closeWindow('post-editor');
+  if(openWindows['post-'+p.id]) renderPostBody(p); else setTimeout(()=>openPost(p.id),220);
+  toast('Saved draft ✓ — 🚀 Publish to go live');
+}
+function deletePost(id){
+  themedConfirm('Delete this post?',()=>{
+    posts=posts.filter(x=>x.id!==id); savePosts(); closeWindow('post-'+id); renderPosts();
+  },{confirmLabel:'Delete'});
+}
+function copyPostLink(id){
+  const u = location.origin + location.pathname + '?post=' + encodeURIComponent(id);
+  if(navigator.clipboard?.writeText){ navigator.clipboard.writeText(u).then(()=>toast('Link copied 🔗'),()=>prompt('Copy link:',u)); }
+  else prompt('Copy link:',u);
+}
+
 // ── ABOUT / CV ────────────────────────────────────────────
 function openAbout(){
   createWindow({id:'about',title:'About Me',icon:'🪪',width:480,height:560,statusText:'Click any field to edit — auto-saves',buildBody:inner=>{
@@ -898,7 +1038,7 @@ function selectIcon(id){document.querySelectorAll('.d-icon').forEach(x=>x.classL
 // double-tap, so a coarse pointer opens straight from the first tap instead —
 // and a keyboard has no dblclick at all, so Enter/Space always opens directly.
 const DESKTOP_ICON_OPENERS = {
-  'icon-reviews':openReviews,'icon-about':openAbout,'icon-guestbook':openGuestbook,
+  'icon-reviews':openReviews,'icon-about':openAbout,'icon-work':openWork,'icon-posts':openPosts,'icon-guestbook':openGuestbook,
   'icon-reading':openReadingList,'icon-terminal':()=>openTerminal(),'icon-classified':openClassified
 };
 document.getElementById('desktop').addEventListener('click',e=>{
@@ -1182,6 +1322,8 @@ function renderPrefsBody(){
   setTimeout(()=>openReviews(130),200); // clear of the desktop icon column (~18-100px) so it doesn't hide the rest of the desktop on first load
   const deepId=new URLSearchParams(location.search).get('paper');
   if(deepId && papers.some(p=>p.id===deepId)) setTimeout(()=>openPaper(deepId),400);
+  const postId=new URLSearchParams(location.search).get('post');
+  if(postId && posts.some(p=>p.id===postId)) setTimeout(()=>openPost(postId),400);
   if(!_lsOk) setTimeout(()=>toast('⚠ Storage disabled — changes won\'t persist'),1200);
   if(!remoteSnapshot) setTimeout(()=>toast('ℹ data.json not found — showing defaults'),1600);
 })();
@@ -1344,6 +1486,7 @@ function openClassified(){
 <span class="t-dim">─────────────────────────────</span>
   help          show this list
   ls            list papers
+  posts         list blog posts
   whoami        who you are
   pwd           where you are
   date          date and time
@@ -1359,6 +1502,11 @@ function openClassified(){
     ls: ()=>{
       if(!papers||!papers.length) return '<span class="t-dim">[ no papers found ]</span>';
       return papers.map((p,i)=>`<span class="t-dim">${String(i+1).padStart(2,'0')}</span>  ${p.title} <span class="t-dim">(${p.year})</span>`).join('\n');
+    },
+
+    posts: ()=>{
+      if(!posts||!posts.length) return '<span class="t-dim">[ no posts yet ]</span>';
+      return sortedPosts().map(p=>`<span class="t-dim">${esc(p.date)}</span>  ${esc(p.title)}`).join('\n');
     },
 
     whoami: ()=>`<span class="t-ok">${cv?.name||'unknown'}</span> — ${cv?.role||'researcher'}`,
@@ -1432,7 +1580,7 @@ license: not much of one`,
 
 
 // ── INTRO + RESTART ───────────────────────────────────────
-// Wordmark lifts, one sentence resolves word by word, then the overlay dissolves and the icons spring in. Plays on every load; skipped on ?paper= deep links,
+// Wordmark lifts, one sentence resolves word by word, then the overlay dissolves and the icons spring in. Plays on every load; skipped on ?paper= / ?post= deep links,
 // reduced motion, and on any click/key. Start menu → Restart (or `reboot` in the terminal) collapses the
 // screen to a line and replays it.
 (function(){
@@ -1440,7 +1588,7 @@ license: not much of one`,
   if(!desktop) return;
   desktop.querySelectorAll('.d-icon').forEach((ic,i)=>ic.style.setProperty('--i',i));
   const reduced=()=>window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const SENTENCE='internetpersona is the personal site of Ali Emre Aydın, a student researcher in quantum machine learning. Open anything on the desk.';
+  const SENTENCE='internetpersona is the personal site of Ali Emre Aydın: quantum kernels by day, things i build at 2am by night. Open anything on the desk.';
 
   function runIntro(){
     if(document.getElementById('intro')) return;
@@ -1484,5 +1632,6 @@ license: not much of one`,
     setTimeout(()=>{ off.remove(); restarting=false; },1600);
   };
 
-  if(!reduced()&&!new URLSearchParams(location.search).get('paper')) runIntro();
+  const qs=new URLSearchParams(location.search);
+  if(!reduced()&&!qs.get('paper')&&!qs.get('post')) runIntro();
 })();
