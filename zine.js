@@ -363,8 +363,8 @@ function startMatrix() {
   };
   if (matrixRAF) cancelAnimationFrame(matrixRAF); matrixRAF = requestAnimationFrame(draw);
 }
-function activateHacker() { if (document.body.classList.contains('hacker')) return; document.body.classList.add('hacker'); $('#root-btn').hidden = false; if (!reduced()) startMatrix(); toast('⛓ ACCESS GRANTED'); }
-function deactivateHacker() { document.body.classList.remove('hacker'); $('#root-btn').hidden = true; $('#secret').hidden = true; toast('systems re-secured'); }
+function activateHacker() { if (document.body.classList.contains('hacker')) return; document.body.classList.add('hacker'); window._repaintWall && window._repaintWall(); $('#root-btn').hidden = false; if (!reduced()) startMatrix(); toast('⛓ ACCESS GRANTED'); }
+function deactivateHacker() { document.body.classList.remove('hacker'); window._repaintWall && window._repaintWall(); $('#root-btn').hidden = true; $('#secret').hidden = true; toast('systems re-secured'); }
 const CMDS = {
   help: () => `<span class="t-ok">PERSONA/OS terminal v2 (zine)</span>\n<span class="t-dim">─────────────────────────────</span>\n  help          this list\n  ls            list reviewed papers\n  posts         list blog posts\n  open <name>   open a post id, or: work, zine, …\n  whoami        who you are\n  pwd           where you are\n  date          date and time\n  cat readme    about this site\n  coffee        ☕\n  clear         clear screen\n  exit          close terminal\n<span class="t-dim">─────────────────────────────\n  [ 1 command not listed — earn it ]</span>`,
   ls: () => D.papers.length ? D.papers.map((p, i) => `<span class="t-dim">${String(i + 1).padStart(2, '0')}</span>  ${esc(p.title)} <span class="t-dim">(${esc(p.year)})</span>`).join('\n') : '<span class="t-dim">[ no papers ]</span>',
@@ -417,7 +417,7 @@ const THEMES = { warm: 'Warm parchment', moonlight: 'Moonlight', amber: 'Phospho
 let prefs = (() => { try { return JSON.parse(lsGet('zine-prefs') || 'null') || {}; } catch (e) { return {}; } })();
 prefs = Object.assign({ theme: 'warm', scan: false, sounds: true }, prefs);
 const savePrefs = () => lsSet('zine-prefs', JSON.stringify(prefs));
-function applyPrefs() { if (!THEMES[prefs.theme]) prefs.theme = 'warm'; document.body.dataset.theme = prefs.theme; document.body.classList.toggle('scan', !!prefs.scan); }
+function applyPrefs() { if (!THEMES[prefs.theme]) prefs.theme = 'warm'; document.body.dataset.theme = prefs.theme; document.body.classList.toggle('scan', !!prefs.scan); window._repaintWall && window._repaintWall(); window._refreshThumbs && window._refreshThumbs(); }
 const mobile = () => matchMedia('(max-width:720px)').matches;
 const TB = 46; // taskbar height
 let suppressUrl = false;
@@ -617,7 +617,7 @@ function openPrefs() {
       <fieldset><legend>Theme</legend>${Object.keys(THEMES).map(k => `<label class="opt"><input type="radio" name="theme" value="${k}"> ${THEMES[k]}</label>`).join('')}</fieldset>
       <fieldset><legend>Display</legend><label class="opt"><input type="checkbox" id="pf-scan"> CRT scanlines</label><label class="opt"><input type="checkbox" id="pf-snd"> Sounds</label></fieldset>
       <small>Saved in this browser only.</small></div>`;
-    const cur = lsGet('zine-wall') || 'waves'; $(`[name=wp][value="${cur}"]`, b).checked = true; $(`[name=theme][value="${prefs.theme}"]`, b).checked = true; $('#pf-scan', b).checked = !!prefs.scan; $('#pf-snd', b).checked = !!prefs.sounds;
+    const cur = lsGet('zine-wall') || 'waves'; $(`[name=wp][value="${cur}"]`, b).checked = true; $(`[name=theme][value="${prefs.theme}"]`, b).checked = true; $('#pf-scan', b).checked = !!prefs.scan; $('#pf-snd', b).checked = !!prefs.sounds; window._refreshThumbs && window._refreshThumbs();
     b.addEventListener('change', e => { const t = e.target; if (t.name === 'wp') window._setWall && window._setWall(t.value); else if (t.name === 'theme') { prefs.theme = t.value; savePrefs(); applyPrefs(); } else if (t.id === 'pf-scan') { prefs.scan = t.checked; savePrefs(); applyPrefs(); } else if (t.id === 'pf-snd') { prefs.sounds = t.checked; savePrefs(); if (t.checked) playSound('click'); } });
   } });
 }
@@ -626,24 +626,55 @@ const DOC_TITLE = 'internetpersona — Ali Emre Aydın';
 const NAME_LINE = 'ali emre aydın', TAG_LINE = 'machine learning by day, things i build at 2am by night.';
 const TAGLINE = NAME_LINE + '. ' + TAG_LINE;
 const WALLS = ['waves', 'ribbons', 'dunes', 'mesh'];
+/* wallpapers are ~24-colour dithered pixel art in the warm palette; other themes remap each colour by brightness,
+   warm tones onto the theme's main ramp and teal tones onto its second ramp, so composition and dither stay identical */
+const WALL_RAMPS = {
+  moonlight: { a: ['#0b0a16', '#1c1934', '#3a2c78', '#6a4fc8', '#a58ae8', '#e4def8'], b: ['#0a1026', '#16295c', '#2f5aa8', '#5c8ad8', '#a8c4f0'], glow: '160,130,240' },
+  amber: { a: ['#070400', '#241400', '#5a3600', '#a86e00', '#ffaa00', '#ffd27a'], b: ['#050300', '#1a0f00', '#442800', '#7a5000', '#c08000'], glow: '255,170,0' },
+  hacker: { a: ['#000600', '#002000', '#005a1c', '#00a833', '#00ff41', '#b0ffc4'], b: ['#000400', '#001806', '#00441a', '#00802c', '#30d860'], glow: '0,255,65' },
+};
+const wallTheme = () => (document.body.classList.contains('hacker') ? 'hacker' : (WALL_RAMPS[prefs.theme] ? prefs.theme : 'warm'));
+const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+function rampAt(stops, t) { const c = stops.map(hexRgb), x = Math.min(1, Math.max(0, t)) * (c.length - 1), i = Math.min(c.length - 2, Math.floor(x)), f = x - i; return c[i].map((v, k) => Math.round(v + (c[i + 1][k] - v) * f)); }
+const recolorCache = new Map();
+function recolorWall(img, theme) {
+  const key = img.src + '|' + theme; if (recolorCache.has(key)) return recolorCache.get(key);
+  const R = WALL_RAMPS[theme], c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const x = c.getContext('2d'); x.drawImage(img, 0, 0); const id = x.getImageData(0, 0, c.width, c.height), d = id.data;
+  const lum = (r, g, b) => .299 * r + .587 * g + .114 * b; let lo = 255, hi = 0;
+  for (let i = 0; i < d.length; i += 4) { const l = lum(d[i], d[i + 1], d[i + 2]); if (l < lo) lo = l; if (l > hi) hi = l; }
+  const map = new Map();
+  for (let i = 0; i < d.length; i += 4) {
+    const k = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; let o = map.get(k);
+    if (!o) { const cool = d[i + 2] > d[i] + 6, t = (lum(d[i], d[i + 1], d[i + 2]) - lo) / Math.max(1, hi - lo); o = rampAt(cool ? R.b : R.a, cool ? t * 1.15 : t); map.set(k, o); }
+    d[i] = o[0]; d[i + 1] = o[1]; d[i + 2] = o[2];
+  }
+  x.putImageData(id, 0, 0); recolorCache.set(key, c); return c;
+}
+function wallSource(img) { const t = wallTheme(); return t === 'warm' ? img : recolorWall(img, t); }
 function osArt() {
   // Static wallpaper (drawn once per change) + a pointer glow that only repaints while the glow is still easing. No continuous loop.
   const c = $('#art'), ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false;
   const imgs = {}; let idx = Math.max(0, WALLS.indexOf(lsGet('zine-wall') || 'waves')), mx = .7, my = .4, tmx = .7, tmy = .4, raf = 0;
   const W = c.width, H = c.height;
-  const load = n => imgs[n] || (imgs[n] = Object.assign(new Image(), { src: `assets/wallpapers/${n}.webp`, onload: () => draw() }));
+  const load = n => imgs[n] || (imgs[n] = Object.assign(new Image(), { src: `assets/wallpapers/${n}.webp`, onload: () => { draw(); window._refreshThumbs && window._refreshThumbs(); } }));
   function draw() {
     const im = imgs[WALLS[idx]]; if (!im || !im.complete || !im.naturalWidth) return;
-    ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(im, 0, 0, W, H);
+    ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(wallSource(im), 0, 0, W, H);
     if (reduced()) return;
+    const glow = (WALL_RAMPS[wallTheme()] || { glow: '232,160,64' }).glow;
     ctx.globalCompositeOperation = 'lighter';
-    const lx = mx * W, ly = my * H, g = ctx.createRadialGradient(lx, ly, 0, lx, ly, 90); g.addColorStop(0, 'rgba(232,160,64,.26)'); g.addColorStop(1, 'rgba(232,160,64,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    const lx = mx * W, ly = my * H, g = ctx.createRadialGradient(lx, ly, 0, lx, ly, 90); g.addColorStop(0, `rgba(${glow},.26)`); g.addColorStop(1, `rgba(${glow},0)`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'source-over';
   }
   function ease() { raf = 0; if (paused || booting()) return; mx += (tmx - mx) * .18; my += (tmy - my) * .18; draw(); if (Math.abs(tmx - mx) + Math.abs(tmy - my) > .004) raf = requestAnimationFrame(ease); }
   load(WALLS[idx]); setTimeout(() => WALLS.forEach(load), 1500);
   $('#os').addEventListener('pointermove', e => { if (reduced() || paused || booting()) return; tmx = e.clientX / innerWidth; tmy = e.clientY / innerHeight; if (!raf) raf = requestAnimationFrame(ease); }, { passive: true });
   window._setWall = n => { idx = Math.max(0, WALLS.indexOf(n)); lsSet('zine-wall', WALLS[idx]); load(WALLS[idx]); draw(); };
+  window._repaintWall = () => draw();
+  // preference thumbnails follow the theme too
+  window._wallThumb = n => { const im = imgs[n]; if (!im || !im.complete || !im.naturalWidth || wallTheme() === 'warm') return `assets/wallpapers/${n}.webp`; return recolorWall(im, wallTheme()).toDataURL('image/png'); };
+  window._refreshThumbs = () => document.querySelectorAll('.wp-opt input[name=wp]').forEach(i => { const sp = i.nextElementSibling; if (sp) sp.style.backgroundImage = `url("${window._wallThumb(i.value)}")`; });
 }
 function wordmarkHop(root) {
   root.querySelectorAll('span').forEach(s => { if (s.children.length) return; s.innerHTML = [...s.textContent].map(c => `<span class="ch" aria-hidden="true">${c}</span>`).join(''); });
