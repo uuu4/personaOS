@@ -55,24 +55,105 @@ const starsHTML = n => !n ? `<span class="kind">unrated</span>` : `<span class="
 let toastT;
 function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1800); }
 
+/* ── UI sounds (Web Audio, no files). The context is created on the first real user gesture only, never at load. ── */
+let sfx = null;
+function playSound(type) {
+  if (!prefs.sounds || paused) return;
+  if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
+  try {
+    if (!sfx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; sfx = new AC(); }
+    if (sfx.state === 'suspended') sfx.resume();
+    const o = sfx.createOscillator(), g = sfx.createGain(), t = sfx.currentTime; o.connect(g); g.connect(sfx.destination);
+    const S = { open: ['sine', 380, 760, .07, .12, .10], close: ['sine', 520, 180, .08, .10, .10], min: ['triangle', 440, 280, .05, .08, .07], click: ['square', 1100, 1100, .02, .05, .022] }[type];
+    if (!S) return; o.type = S[0]; o.frequency.setValueAtTime(S[1], t); o.frequency.linearRampToValueAtTime(S[2], t + S[3]);
+    g.gain.setValueAtTime(S[4], t); g.gain.linearRampToValueAtTime(0, t + S[5]); o.start(t); o.stop(t + S[5]);
+  } catch (e) {}
+}
+
+/* ── PDF first-page previews: pdf.js is injected on first need; each URL renders once and is cached as an image ── */
+const PDFJS = 'https://unpkg.com/pdfjs-dist@3.11.174/build/';
+let pdfjsP = null;
+function loadPdfjs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  return pdfjsP || (pdfjsP = new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = PDFJS + 'pdf.min.js';
+    s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; res(window.pdfjsLib); };
+    s.onerror = () => { pdfjsP = null; rej(new Error('pdf.js')); }; document.head.appendChild(s);
+  }));
+}
+const pdfCache = new Map();
+function pdfImage(url) {
+  if (pdfCache.has(url)) return pdfCache.get(url);
+  const p = (async () => {
+    const lib = await loadPdfjs();
+    const render = async u => {
+      const doc = await lib.getDocument({ url: u, withCredentials: false }).promise;
+      try { const page = await doc.getPage(1), v1 = page.getViewport({ scale: 1 }), vp = page.getViewport({ scale: 720 / v1.width });
+        const c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+        await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
+        return await new Promise(r => c.toBlob(b => r(b ? URL.createObjectURL(b) : c.toDataURL('image/png')), 'image/png'));
+      } finally { doc.destroy(); }
+    };
+    // our own worker URLs (e.g. /cv) are fetched directly; anything else goes through the worker's /pdf proxy (origin servers rarely send CORS headers)
+    if (url.startsWith(WORKER_URL)) return render(url);
+    try { return await render(WORKER_URL + '/pdf?url=' + encodeURIComponent(url)); } catch (e) { return render(url); }
+  })();
+  p.catch(() => pdfCache.delete(url)); pdfCache.set(url, p); return p;
+}
+const pdfBoxHTML = (url, label) => /^https?:\/\//i.test(String(url || '').trim())
+  ? `<a class="pdf-box" href="${safeHref(url)}" target="_blank" rel="noopener noreferrer" data-pdf="${esc(String(url).trim())}" aria-label="${esc(label || 'open pdf')}"><span class="pdf-ph">loading…</span></a>` : '';
+let pdfIO = null;
+function fillPdf(box) {
+  if (box.dataset.done) return; box.dataset.done = '1';
+  pdfImage(box.dataset.pdf).then(src => { if (!box.isConnected) return; box.innerHTML = `<img src="${src}" alt="">`; box.classList.add('ok'); })
+    .catch(() => { if (box.isConnected) $('.pdf-ph', box).textContent = 'preview unavailable'; });
+}
+// windows fill right away; zine blocks fill only when scrolled near, so nothing is fetched during boot
+function hydrate(root) {
+  root.querySelectorAll('[data-pdf]:not([data-done]),[data-gh]:not([data-done])').forEach(el => {
+    const fill = () => (el.dataset.pdf ? fillPdf(el) : fillGh(el));
+    if (!el.closest('#zine') || !('IntersectionObserver' in window)) { fill(); return; }
+    pdfIO = pdfIO || new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { pdfIO.unobserve(e.target); (e.target.dataset.pdf ? fillPdf : fillGh)(e.target); } }), { rootMargin: '300px 0px' });
+    pdfIO.observe(el);
+  });
+}
+
+/* ── GitHub contributions (public API, CORS *, fetched once per user) ── */
+const ghCache = new Map();
+function ghData(user) {
+  if (!ghCache.has(user)) { const p = fetch(`https://github-contributions-api.jogruber.de/v4/${encodeURIComponent(user)}?y=last`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }); p.catch(() => ghCache.delete(user)); ghCache.set(user, p); }
+  return ghCache.get(user);
+}
+function fillGh(el) {
+  el.dataset.done = '1'; const user = el.dataset.gh;
+  ghData(user).then(d => {
+    if (!el.isConnected) return; const cs = d.contributions || []; if (!cs.length) throw new Error('empty');
+    const pad = new Date(cs[0].date + 'T12:00:00Z').getUTCDay(), total = (+(d.total && d.total.lastYear) || cs.reduce((s, c) => s + (+c.count || 0), 0)) | 0;
+    el.innerHTML = `<div class="gh-scroll"><div class="gh-grid">${'<i class="gh-pad"></i>'.repeat(pad)}${cs.map(c => `<i class="gh-l${Math.min(4, Math.max(0, c.level | 0))}" title="${esc(c.date)}: ${+c.count | 0}"></i>`).join('')}</div></div><a class="gh-total" href="https://github.com/${encodeURIComponent(user)}" target="_blank" rel="noopener noreferrer">${total} contributions in the last year</a>`;
+    const sc = $('.gh-scroll', el); sc.scrollLeft = sc.scrollWidth;
+  }).catch(() => { if (el.isConnected) el.innerHTML = `<p class="empty">couldn't load contributions.</p>`; });
+}
+
 /* ═══════════ CONTENT: one source (data.json), two views (OS windows / zine) ═══════════ */
 const APPS = {
   posts: { file: 'posts.exe', label: 'Posts', w: 480, h: 520 },
   work: { file: 'work/', label: 'Work', w: 520, h: 560 },
   reviews: { file: 'reviews/', label: 'Reviews', w: 560, h: 520 },
   reading: { file: 'reading.txt', label: 'Reading', w: 400, h: 460 },
-  about: { file: 'about_me.cv', label: 'About', w: 480, h: 560 },
+  about: { file: 'about_me.cv', label: 'About', w: 560, h: 740 },
   guestbook: { file: 'guestbook', label: 'Guestbook', w: 420, h: 540 },
 };
 const mounts = [];
-function mount(id, el, mode) { mounts.push({ id, el, mode }); R[id](el, mode); }
-function refreshMounts() { for (let i = mounts.length - 1; i >= 0; i--) { const m = mounts[i]; if (!m.el.isConnected) { mounts.splice(i, 1); continue; } R[m.id](m.el, m.mode); } }
+function mount(id, el, mode) { mounts.push({ id, el, mode }); R[id](el, mode); hydrate(el); }
+const KEEP = ['.rl-title', '.rl-link'];
+function refreshMounts() { for (let i = mounts.length - 1; i >= 0; i--) { const m = mounts[i]; if (!m.el.isConnected) { mounts.splice(i, 1); continue; } const kept = KEEP.map(s => $(s, m.el)?.value); R[m.id](m.el, m.mode); KEEP.forEach((s, j) => { const el = $(s, m.el); if (el && kept[j]) el.value = kept[j]; }); hydrate(m.el); } refreshPaperWins(); }
+const adminBar = extra => isAdmin() ? `<div class="admin-tools">${extra || ''}<button class="btn btn--ghost" type="button" data-act="publish">publish</button></div>` : '';
 const zh = (icon, title) => `<div class="z-head"><img src="assets/icons/${icon}.png" alt="" width="48" height="48"><h2>${title}</h2></div>`;
 const R = {
   posts(el, mode) {
     const z = mode === 'zine', list = sortedPosts();
     el.innerHTML = (z ? zh('posts', 'Posts') : '') +
-      (!z && isAdmin() ? `<div class="admin-tools"><button class="btn" type="button" data-act="new-post">+ new post</button><button class="btn btn--ghost" type="button" data-act="publish">🚀 publish</button></div>` : '') +
+      (!z ? adminBar(`<button class="btn" type="button" data-act="new-post">+ new post</button>`) : '') +
       (list.length ? `<ul class="post-list">${list.map(p => `<li><a class="post-row" href="?post=${encodeURIComponent(p.id)}" data-post="${esc(p.id)}"><span class="post-date">${esc(fmtDate(p.date))}</span><span class="post-title">${esc(p.title)}</span>${p.summary ? `<span class="post-sum">${esc(p.summary)}</span>` : ''}</a></li>`).join('')}</ul>` : `<p class="empty">no posts yet.</p>`);
   },
   work(el, mode) {
@@ -88,18 +169,22 @@ const R = {
   },
   reviews(el, mode) {
     const z = mode === 'zine';
-    el.innerHTML = (z ? zh('reviews', 'Reviews') : '') + `<div class="${z ? 'cards' : 'rgrid'}">${D.papers.map(p => {
+    el.innerHTML = (z ? zh('reviews', 'Reviews') : adminBar(`<button class="btn" type="button" data-act="add-paper">+ add paper</button>`)) + `<div class="${z ? 'cards' : 'rgrid'}">${D.papers.map(p => {
       const notes = (p.notes || '').trim();
       if (!z) return `<button type="button" class="rcard" data-act="open-notes" data-id="${esc(p.id)}">${starsHTML(p.rating || 0)}<span class="rt">${esc(p.title)}</span></button>`;
-      return `<article class="card" id="paper-${esc(p.id)}"><div class="card-top">${starsHTML(p.rating || 0)}</div><h3>${esc(p.title)}</h3><div class="tags">${(p.tags || []).slice(0, 4).map(tagHTML).join('')}</div>${notes ? `<details class="notes"><summary>my notes</summary><div class="prose">${plainParas(notes)}</div></details>` : ''}${p.pdfUrl ? `<div class="card-link"><a class="btn btn--ghost" href="${safeHref(p.pdfUrl)}" target="_blank" rel="noopener noreferrer">paper ↗</a></div>` : ''}</article>`;
+      return `<article class="card" id="paper-${esc(p.id)}"><div class="card-top">${starsHTML(p.rating || 0)}</div><h3>${esc(p.title)}</h3>${paperMeta(p) ? `<div class="meta">${esc(paperMeta(p))}</div>` : ''}<div class="tags">${(p.tags || []).slice(0, 4).map(tagHTML).join('')}</div>${(p.abstract || '').trim() ? `<details class="notes"><summary>abstract</summary><div class="prose">${plainParas(p.abstract)}</div></details>` : ''}${notes ? `<details class="notes"><summary>my notes</summary><div class="prose">${plainParas(notes)}</div></details>` : ''}${p.pdfUrl ? `<div class="card-link"><a class="btn btn--ghost" href="${safeHref(p.pdfUrl)}" target="_blank" rel="noopener noreferrer">paper ↗</a></div>` : ''}</article>`;
     }).join('')}</div>`;
   },
   reading(el, mode) {
-    el.innerHTML = (mode === 'zine' ? zh('reading', 'Reading list') : '') + (D.readingList.length ? `<ul class="rl">${D.readingList.map(it => `<li>${it.link ? `<a href="${safeHref(it.link)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a>` : `<span>${esc(it.title)}</span>`}</li>`).join('')}</ul>` : `<p class="empty">nothing queued.</p>`);
+    const z = mode === 'zine', adm = !z && isAdmin();
+    el.innerHTML = (z ? zh('reading', 'Reading list') : '') +
+      (adm ? `<div class="frm rl-add"><input class="rl-title" placeholder="title" aria-label="title"><input class="rl-link" type="url" placeholder="link (optional)" aria-label="link"><div class="frm-row"><button class="btn" type="button" data-act="rl-add">+ add</button><button class="btn btn--ghost" type="button" data-act="publish">publish</button></div></div>` : '') +
+      (D.readingList.length ? `<ul class="rl">${D.readingList.map(it => `<li>${it.link ? `<a href="${safeHref(it.link)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a>` : `<span>${esc(it.title)}</span>`}${adm ? `<button type="button" class="btn btn--ghost rl-del" data-act="rl-del" data-id="${esc(it.id)}" aria-label="remove ${esc(it.title)}">✕</button>` : ''}</li>`).join('')}</ul>` : `<p class="empty">nothing queued.</p>`);
   },
   about(el, mode) {
-    const cv = D.cv || {}, z = mode === 'zine', interests = String(cv.interests || '').split(',').map(s => s.trim()).filter(Boolean);
-    el.innerHTML = (z ? zh('about', 'About') : '') + `<div class="about"><canvas class="about-pet" width="16" height="20" aria-hidden="true"></canvas><div><h3 class="name">Ali Emre Aydın</h3>${cv.role ? `<div class="role">${esc(cv.role)}</div>` : ''}<p class="bio">${esc(cv.bio || '')}</p>${cv.affiliation ? `<p class="aff">${esc(cv.affiliation)}</p>` : ''}${interests.length ? `<div class="chips">${interests.map(i => `<span class="chip">${esc(i)}</span>`).join('')}</div>` : ''}<div class="about-links">${cv.cvUrl ? `<a class="btn" href="${safeHref(cv.cvUrl)}" target="_blank" rel="noopener noreferrer">CV (PDF) ↗</a>` : ''}<a class="btn btn--ghost" href="https://github.com/uuu4" target="_blank" rel="noopener noreferrer">GitHub ↗</a>${cv.email ? `<a class="btn btn--ghost" href="mailto:${esc(cv.email)}">email</a>` : ''}</div></div></div>`;
+    const cv = D.cv || {}, z = mode === 'zine', interests = String(cv.interests || '').split(',').map(s => s.trim()).filter(Boolean), gh = String(cv.github || 'uuu4').trim() || 'uuu4';
+    el.innerHTML = (z ? zh('about', 'About') : adminBar(`<button class="btn" type="button" data-act="cv-edit">edit profile</button>`)) + `<div class="about"><canvas class="about-pet" width="16" height="20" aria-hidden="true"></canvas><div><h3 class="name">${esc(cv.name || 'Ali Emre Aydın')}</h3>${cv.role ? `<div class="role">${esc(cv.role)}</div>` : ''}<p class="bio">${esc(cv.bio || '')}</p>${cv.affiliation ? `<p class="aff">${esc(cv.affiliation)}</p>` : ''}${interests.length ? `<div class="chips">${interests.map(i => `<span class="chip">${esc(i)}</span>`).join('')}</div>` : ''}<div class="about-links">${cv.cvUrl ? `<a class="btn" href="${safeHref(cv.cvUrl)}" target="_blank" rel="noopener noreferrer">CV (PDF) ↗</a>` : ''}<a class="btn btn--ghost" href="https://github.com/${encodeURIComponent(gh)}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>${cv.email ? `<a class="btn btn--ghost" href="mailto:${esc(cv.email)}">email</a>` : ''}</div></div></div>
+      <div class="about-extra">${cv.cvUrl ? `<div class="ax-cv"><h4>cv</h4>${pdfBoxHTML(cv.cvUrl, 'open CV (PDF)')}</div>` : ''}<div class="ax-gh"><h4>github</h4><div class="gh" data-gh="${esc(gh)}"><p class="empty">loading…</p></div></div></div>`;
     drawAboutPets();
   },
   guestbook(el, mode) {
@@ -161,13 +246,103 @@ function openPost(id, push = true, zine = false) {
   openWin({ id: 'reader', side: true, title: p.id + '.md', icon: 'posts', width: 640, height: 640, progress: true, onClose: () => { document.title = DOC_TITLE; clearUrl('post'); } });
   renderPost(p); if (push && new URLSearchParams(location.search).get('post') !== id) setUrl('?post=' + encodeURIComponent(id));
 }
+const paperMeta = p => [String(p.authors || '').trim(), [p.venue && p.venue !== '—' ? p.venue : '', p.year || ''].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+const allTags = () => [...new Set(D.papers.flatMap(p => p.tags || []))].sort();
+function paperBody(b, p) {
+  const adm = isAdmin(), notes = (p.notes || '').trim(), abs = (p.abstract || '').trim(), id = esc(p.id);
+  const stars = adm ? `<span class="stars stars--edit" role="group" aria-label="rating">${[1, 2, 3, 4, 5].map(i => `<button type="button" class="star ${i <= (p.rating || 0) ? 'lit' : ''}" data-act="rate" data-id="${id}" data-n="${i}" aria-label="rate ${i} of 5"></button>`).join('')}</span>` : starsHTML(p.rating || 0);
+  const tags = adm ? `<div class="tags tags--edit">${(p.tags || []).map((t, i) => tagHTML(t).replace('</span>', `<button type="button" class="tag-x" data-act="tag-x" data-id="${id}" data-i="${i}" aria-label="remove tag ${esc(t)}">×</button></span>`)).join('')}<input class="tag-in" data-id="${id}" list="tag-list" placeholder="+ tag" aria-label="add tag"><datalist id="tag-list">${allTags().map(t => `<option value="${esc(t)}">`).join('')}</datalist></div>` : `<div class="tags">${(p.tags || []).map(tagHTML).join('')}</div>`;
+  b.innerHTML = `<div class="reader-in paper-win"><div class="paper-top">${pdfBoxHTML(p.pdfUrl, 'open paper (PDF)')}<div class="paper-head"><div class="reader-date">${stars}</div><h1 class="small">${esc(p.title)}</h1>${paperMeta(p) ? `<div class="paper-meta">${esc(paperMeta(p))}</div>` : ''}${tags}${p.pdfUrl ? `<p class="paper-link"><a class="btn btn--ghost" href="${safeHref(p.pdfUrl)}" target="_blank" rel="noopener noreferrer">paper ↗</a></p>` : ''}</div></div>
+    ${abs ? `<h4 class="sub">abstract</h4><div class="prose prose--abs">${plainParas(abs)}</div>` : ''}
+    <h4 class="sub">my notes</h4>${adm ? `<div class="frm"><textarea class="notes-in" rows="9" aria-label="notes">${esc(p.notes || '')}</textarea><label>pdf link<input class="pdf-in" type="url" value="${esc(p.pdfUrl || '')}" placeholder="https://arxiv.org/pdf/…"></label><div class="frm-row"><button class="btn" type="button" data-act="paper-save" data-id="${id}">save draft</button><button class="btn btn--ghost" type="button" data-act="publish">publish</button><button class="btn btn--ghost" type="button" data-act="paper-del" data-id="${id}">remove paper</button></div></div>` : `<div class="prose">${notes ? plainParas(notes) : '<p><i>no notes yet.</i></p>'}</div>`}</div>`;
+  hydrate(b);
+}
+// re-render open paper windows, keeping any unsaved text in the notes / pdf fields (a star or tag click must not wipe it)
+function refreshPaperWins() {
+  Object.keys(wins).forEach(k => {
+    if (!k.startsWith('notes-')) return; const w = wins[k], p = D.papers.find(x => 'notes-' + x.id === k); if (!p) { closeWin(k, true); return; }
+    const keep = ['.notes-in', '.pdf-in'].map(s => $(s, w.body)?.value), st = w.body.scrollTop; paperBody(w.body, p);
+    ['.notes-in', '.pdf-in'].forEach((s, i) => { const el = $(s, w.body); if (el && keep[i] != null) el.value = keep[i]; }); w.body.scrollTop = st;
+  });
+}
 function openNotes(id, push = true) {
   const p = D.papers.find(x => x.id === id); if (!p) return;
-  const notes = (p.notes || '').trim(), slug = String(p.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 26);
-  openWin({ id: 'notes-' + id, side: true, title: slug + '.txt', icon: 'reviews', width: 560, height: 580, onClose: () => clearUrl('paper'), build: b => {
-    b.innerHTML = `<div class="reader-in"><div class="reader-date">${starsHTML(p.rating || 0)}</div><h1 class="small">${esc(p.title)}</h1><div class="tags">${(p.tags || []).map(tagHTML).join('')}</div><div class="px-rule" style="margin:16px 0"></div><div class="prose">${notes ? plainParas(notes) : '<p><i>no notes yet.</i></p>'}</div>${p.pdfUrl ? `<p style="margin-top:22px"><a class="btn btn--ghost" href="${safeHref(p.pdfUrl)}" target="_blank" rel="noopener noreferrer">paper ↗</a></p>` : ''}</div>`;
-  } });
+  const slug = String(p.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 26);
+  openWin({ id: 'notes-' + id, side: true, title: slug + '.txt', icon: 'reviews', width: 640, height: 640, onClose: () => clearUrl('paper'), build: b => paperBody(b, p) });
   if (push && new URLSearchParams(location.search).get('paper') !== id) setUrl('?paper=' + encodeURIComponent(id));
+}
+
+/* ── admin editors: papers, reading list, sticky note, profile. Each edit lands in a section draft; publish sends everything. ── */
+const findPaper = id => D.papers.find(x => x.id === id);
+function paperChanged(p, msg) { saveDraft('papers'); refreshMounts(); if (msg) toast(msg); }
+function setRating(id, n) { const p = findPaper(id); if (!p) return; p.rating = p.rating === n ? 0 : n; paperChanged(p, p.rating ? `rated ${p.rating}/5 ✓` : 'rating cleared'); }
+function addTag(id, v) { const p = findPaper(id), t = String(v || '').trim().toLowerCase(); if (!p || !t) return; p.tags = p.tags || []; if (!p.tags.includes(t)) p.tags.push(t); paperChanged(p); setTimeout(() => $(`#win-notes-${CSS.escape(id)} .tag-in`)?.focus(), 30); }
+function removeTag(id, i) { const p = findPaper(id); if (!p || !p.tags) return; p.tags.splice(+i, 1); paperChanged(p); }
+function savePaper(id) {
+  const p = findPaper(id), w = wins['notes-' + id]; if (!p || !w) return;
+  p.notes = $('.notes-in', w.body).value; const u = $('.pdf-in', w.body).value.trim();
+  if (u && !/^https?:\/\//i.test(u)) { toast('pdf link must start with http(s)://'); return; }
+  p.pdfUrl = u; paperChanged(p, 'saved draft ✓ publish to go live');
+}
+function deletePaper(id) { themedConfirm('Remove this paper from reviews?', () => { D.papers = D.papers.filter(x => x.id !== id); closeWin('notes-' + id); paperChanged(null, 'paper removed (draft)'); }, { confirmLabel: 'Remove' }); }
+function openAddPaper() {
+  if (!isAdmin()) { toast('Admin only'); return; }
+  openWin({ id: 'add-paper', title: 'add_paper.txt', icon: 'reviews', width: 560, height: 680, build: b => {
+    b.innerHTML = `<div class="frm"><label for="ap-fetch">auto-fill from arXiv / DOI / link</label><div class="frm-row ap-fetch-row"><input id="ap-fetch" placeholder="arxiv.org/abs/… · 10.1038/… · 2303.14307"><button class="btn" type="button" id="ap-fetch-btn" data-act="ap-fetch">fetch</button></div><div id="ap-msg" class="frm-msg" role="status"></div>
+      <label for="ap-title">title *</label><input id="ap-title"><label for="ap-authors">authors</label><input id="ap-authors">
+      <div class="frm-row frm-2"><span><label for="ap-year">year</label><input id="ap-year" type="number" placeholder="${new Date().getFullYear()}"></span><span><label for="ap-venue">venue</label><input id="ap-venue"></span></div>
+      <label for="ap-tags">tags (comma separated)</label><input id="ap-tags"><label for="ap-abstract">abstract</label><textarea id="ap-abstract" rows="6"></textarea><label for="ap-pdf">pdf link</label><input id="ap-pdf" type="url" placeholder="https://arxiv.org/pdf/…">
+      <div class="frm-row"><button class="btn" type="button" data-act="ap-save">add to reviews</button><button class="btn btn--ghost" type="button" data-close="add-paper">Cancel</button></div></div>`;
+    $('#ap-fetch', b).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); autofillPaper(); } }); setTimeout(() => $('#ap-fetch', b)?.focus(), 60);
+  } });
+}
+async function autofillPaper() {
+  const q = $('#ap-fetch')?.value.trim(), msg = $('#ap-msg'), btn = $('#ap-fetch-btn'); if (!msg) return;
+  if (!q) { msg.textContent = 'paste an arXiv link/id or a DOI first'; return; }
+  btn.disabled = true; msg.textContent = 'fetching…';
+  try {
+    const r = await fetch(WORKER_URL + '/meta?id=' + encodeURIComponent(q)), d = await r.json().catch(() => ({}));
+    if (!r.ok || d.error) { msg.textContent = d.error || ('error ' + r.status); return; }
+    const set = (k, v) => { const el = $('#' + k); if (el && v != null && v !== '') el.value = v; };
+    set('ap-title', d.title); set('ap-authors', d.authors); set('ap-year', d.year); set('ap-venue', d.venue); set('ap-abstract', d.abstract); set('ap-pdf', d.pdfUrl);
+    msg.textContent = 'filled ✓ check the fields, then add';
+  } catch (e) { msg.textContent = "couldn't reach the worker"; }
+  finally { btn.disabled = false; }
+}
+function submitAddPaper() {
+  const v = k => ($('#' + k)?.value || '').trim(), title = v('ap-title'); if (!title) { toast('Title is required!'); return; }
+  const pdf = v('ap-pdf'); if (pdf && !/^https?:\/\//i.test(pdf)) { toast('pdf link must start with http(s)://'); return; }
+  const p = { id: 'p' + Date.now(), title, authors: v('ap-authors'), year: parseInt(v('ap-year'), 10) || new Date().getFullYear(), venue: v('ap-venue'),
+    tags: v('ap-tags').split(',').map(t => t.trim().toLowerCase()).filter(Boolean), abstract: v('ap-abstract'), rating: 0, notes: '', icon: '📄', pdfUrl: pdf };
+  D.papers.push(p); closeWin('add-paper'); paperChanged(p, 'paper added (draft)'); setTimeout(() => openNotes(p.id), 120);
+}
+function addReading(btn) {
+  const f = btn.closest('.rl-add'), title = $('.rl-title', f).value.trim(), link = $('.rl-link', f).value.trim();
+  if (!title) { toast('Title is required!'); return; } if (link && !/^https?:\/\//i.test(link)) { toast('link must start with http(s)://'); return; }
+  D.readingList.push({ id: 'r' + Date.now(), title, link }); $('.rl-title', f).value = ''; $('.rl-link', f).value = ''; saveDraft('readingList'); refreshMounts(); toast('added (draft) ✓');
+  setTimeout(() => $('#win-app-reading .rl-title')?.focus(), 30);
+}
+function deleteReading(id) { const it = D.readingList.find(x => x.id === id); if (!it) return; themedConfirm(`Remove "${it.title}"?`, () => { D.readingList = D.readingList.filter(x => x.id !== id); saveDraft('readingList'); refreshMounts(); }, { confirmLabel: 'Remove' }); }
+function openNoteEditor() {
+  if (!isAdmin()) return;
+  openWin({ id: 'note-editor', title: 'sticky_note.txt', icon: 'about', width: 440, height: 440, build: b => {
+    b.innerHTML = `<div class="frm"><label for="ne-text">sticky note <small>(the first paragraph stays hidden on the desktop)</small></label><textarea id="ne-text" rows="9">${esc(D.note || '')}</textarea><div class="frm-row"><button class="btn" type="button" data-act="note-save">save draft</button><button class="btn btn--ghost" type="button" data-close="note-editor">Cancel</button></div></div>`;
+    setTimeout(() => $('#ne-text', b)?.focus(), 60);
+  } });
+}
+function saveNote() { const t = $('#ne-text'); if (!t) return; D.note = t.value; saveDraft('note'); renderSticky(); closeWin('note-editor'); toast('saved draft ✓ publish to go live'); }
+const CV_FIELDS = [['name', 'name'], ['role', 'role'], ['affiliation', 'affiliation'], ['bio', 'bio', 1], ['interests', 'interests (comma separated)'], ['email', 'email'], ['website', 'website'], ['cvUrl', 'cv pdf link'], ['github', 'github username']];
+function openCvEditor() {
+  if (!isAdmin()) return; const cv = D.cv || {};
+  openWin({ id: 'cv-editor', title: 'edit_profile.cfg', icon: 'about', width: 560, height: 680, build: b => {
+    b.innerHTML = `<div class="frm">${CV_FIELDS.map(([k, l, ta]) => `<label for="cv-${k}">${l}</label>${ta ? `<textarea id="cv-${k}" rows="4">${esc(cv[k] || '')}</textarea>` : `<input id="cv-${k}" value="${esc(cv[k] || (k === 'github' ? 'uuu4' : ''))}">`}`).join('')}
+      <div class="frm-row"><button class="btn" type="button" data-act="cv-save">save draft</button><button class="btn btn--ghost" type="button" data-close="cv-editor">Cancel</button></div></div>`;
+  } });
+}
+function saveCv() {
+  const nv = {}; CV_FIELDS.forEach(([k]) => { const el = $('#cv-' + k); if (el) nv[k] = el.value.trim(); });
+  if (nv.cvUrl && !/^https?:\/\//i.test(nv.cvUrl)) { toast('cv link must start with http(s)://'); return; }
+  D.cv = Object.assign({}, D.cv, nv); saveDraft('cv'); closeWin('cv-editor'); refreshMounts(); toast('saved draft ✓ publish to go live');
 }
 
 /* ── hacker mode + terminal (commands from app.js) ── */
@@ -240,7 +415,7 @@ document.addEventListener('keydown', e => {
 const THEMES_PLACEHOLDER = 0;
 const THEMES = { warm: 'Warm parchment', moonlight: 'Moonlight', amber: 'Phosphor amber' };
 let prefs = (() => { try { return JSON.parse(lsGet('zine-prefs') || 'null') || {}; } catch (e) { return {}; } })();
-prefs = Object.assign({ theme: 'warm', scan: false }, prefs);
+prefs = Object.assign({ theme: 'warm', scan: false, sounds: true }, prefs);
 const savePrefs = () => lsSet('zine-prefs', JSON.stringify(prefs));
 function applyPrefs() { if (!THEMES[prefs.theme]) prefs.theme = 'warm'; document.body.dataset.theme = prefs.theme; document.body.classList.toggle('scan', !!prefs.scan); }
 const mobile = () => matchMedia('(max-width:720px)').matches;
@@ -251,22 +426,44 @@ const clearUrl = key => { if (suppressUrl) return; if (new URLSearchParams(locat
 
 /* ── admin: login, post editor, publish (same worker contract as the old app.js) ── */
 const ADMIN_KEY = 'pl-admin-session', PW_KEY = 'pl-admin-pw', STORE_KEY = 'pl-v4', CV_KEY = 'pl-cv-v4', NOTE_KEY = 'pl-note-v4', RL_KEY = 'pl-rl-v1', POSTS_KEY = 'pl-posts-v1';
+const DRAFT_KEY = 'ip-draft-v2', SECTIONS = ['papers', 'cv', 'note', 'readingList', 'posts'];
 const isAdmin = () => lsGet(ADMIN_KEY) === '1';
 function setAdmin(v) { try { if (v) localStorage.setItem(ADMIN_KEY, '1'); else localStorage.removeItem(ADMIN_KEY); } catch (e) {} updateBadge(); updateStart(); }
-function updateBadge() { const b = $('#admin-badge'); if (!b) return; const a = isAdmin(); b.className = a ? 'unlocked' : 'locked'; $('span', b).textContent = a ? 'ADMIN' : 'GUEST'; b.title = a ? 'Admin: click to log out' : 'Admin login'; }
-const savePosts = () => { if (isAdmin()) lsSet(POSTS_KEY, JSON.stringify(D.posts)); };
+const hasDraft = () => !!lsGet(DRAFT_KEY);
+function updateBadge() { const b = $('#admin-badge'); if (!b) return; const a = isAdmin(); b.className = a ? 'unlocked' : 'locked'; $('span', b).textContent = a ? (hasDraft() ? 'ADMIN •' : 'ADMIN') : 'GUEST'; b.title = a ? (hasDraft() ? 'unpublished changes · click to log out' : 'Admin: click to log out') : 'Admin login'; }
 const publishedData = () => ({ papers: D.papers, cv: D.cv, note: D.note, readingList: D.readingList, work: D.work, posts: D.posts });
 let remoteOk = false; // publish is refused unless data.json actually loaded (an empty payload would wipe content)
+// After a publish, Pages needs ~30 s to serve the new data.json. A reload in that window loads the OLD data; publishing from it would undo the last publish. So publish stays blocked until the live file matches what was sent (or 10 min pass).
+const PUB_KEY = 'ip-last-publish'; let deployPending = false;
+/* Admin drafts: one entry per section, each stamped with a fingerprint of the live section it started from.
+   On load a section draft is used only if the live section is still that same version; otherwise it is dropped, so a stale draft can never overwrite newer content. */
+const fp = v => { const s = JSON.stringify(v == null ? null : v); let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + '.' + s.length; };
+let remoteFp = {};
+const readDraft = () => { try { const d = JSON.parse(lsGet(DRAFT_KEY) || 'null'); return d && typeof d === 'object' ? d : {}; } catch (e) { return {}; } };
+function saveDraft(section) {
+  if (!isAdmin() || !SECTIONS.includes(section)) return;
+  const d = readDraft(); d[section] = { base: remoteFp[section], data: D[section] }; lsSet(DRAFT_KEY, JSON.stringify(d)); updateBadge();
+}
+const savePosts = () => saveDraft('posts');
 async function loadData() {
   let s = {}; remoteOk = false;
   try { const r = await fetch('./data.json?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) { s = await r.json(); remoteOk = true; } } catch (e) {}
-  // Old-app drafts for papers/cv/note/reading list have no editor here: drop them so they can't shadow or overwrite newer remote content.
-  [STORE_KEY, CV_KEY, NOTE_KEY, RL_KEY].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  // Drafts written by the old app (pre-v2 keys) are always dropped: they carry no fingerprint, so they could shadow newer live content.
   const tp = k => { try { return JSON.parse(lsGet(k) || 'null'); } catch (e) { return null; } };
-  D.papers = s.papers || []; D.cv = s.cv || {}; D.note = s.note || ''; D.readingList = s.readingList || [];
-  const draft = isAdmin() ? tp(POSTS_KEY) : null;
-  D.posts = Array.isArray(draft) && draft.length ? draft : (s.posts || []);
-  D.work = s.work || [];
+  const oldPosts = tp(POSTS_KEY);
+  [STORE_KEY, CV_KEY, NOTE_KEY, RL_KEY].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+  D.papers = s.papers || []; D.cv = s.cv || {}; D.note = s.note || ''; D.readingList = s.readingList || []; D.posts = s.posts || []; D.work = s.work || [];
+  remoteFp = {}; SECTIONS.forEach(k => { remoteFp[k] = fp(D[k]); });
+  deployPending = false;
+  try { const lp = JSON.parse(lsGet(PUB_KEY) || 'null'); if (lp && remoteOk) { if (fp(publishedData()) === lp.fp || Date.now() - lp.at > 600000) localStorage.removeItem(PUB_KEY); else deployPending = true; } } catch (e) {}
+  if (!isAdmin() || !remoteOk) return;
+  // one-time carry-over of a posts draft saved by the previous version of this file (same base assumption it already used)
+  if (Array.isArray(oldPosts) && oldPosts.length && !readDraft().posts) { const d = readDraft(); d.posts = { base: remoteFp.posts, data: oldPosts }; lsSet(DRAFT_KEY, JSON.stringify(d)); }
+  try { localStorage.removeItem(POSTS_KEY); } catch (e) {}
+  const d = readDraft(); let dropped = 0;
+  SECTIONS.forEach(k => { const e = d[k]; if (!e) return; if (e.base === remoteFp[k]) D[k] = e.data; else { delete d[k]; dropped++; } });
+  if (Object.keys(d).length) lsSet(DRAFT_KEY, JSON.stringify(d)); else { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+  if (dropped) setTimeout(() => toast('live data changed since your draft, ' + dropped + ' section draft(s) dropped'), 400);
 }
 function toggleAdminLogin() {
   if (isAdmin()) themedConfirm('Log out from admin?', async () => { setAdmin(false); try { sessionStorage.removeItem(PW_KEY); } catch (e) {} await loadData(); renderAll(); toast('Logged out'); }, { confirmLabel: 'Log out', danger: false });
@@ -299,11 +496,12 @@ function publishToWorker() {
   themedPrompt('Commit message:', 'Update via personaOS', msg => doPublish(msg, pass));
 }
 async function doPublish(msg, pass) {
-  if (!remoteOk) { toast("data.json didn't load — reload the page before publishing"); return; }
+  if (!remoteOk) { toast("data.json didn't load, reload the page before publishing"); return; }
+  if (deployPending) { toast('the last publish is still deploying, reload in a minute'); return; }
   toast('Publishing…');
   try {
     const r = await fetch(WORKER_URL + '/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pass, data: publishedData(), message: msg }) });
-    if (r.ok) { [STORE_KEY, CV_KEY, NOTE_KEY, RL_KEY, POSTS_KEY].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); renderAll(); toast('Committed ✓ — deploying…'); pollDeploy(publishedData()); }
+    if (r.ok) { [STORE_KEY, CV_KEY, NOTE_KEY, RL_KEY, POSTS_KEY, DRAFT_KEY].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); SECTIONS.forEach(k => { remoteFp[k] = fp(D[k]); }); lsSet(PUB_KEY, JSON.stringify({ at: Date.now(), fp: fp(publishedData()) })); renderAll(); toast('committed ✓ deploying…'); pollDeploy(publishedData()); }
     else if (r.status === 401) { try { sessionStorage.removeItem(PW_KEY); } catch (e) {} setAdmin(false); toast('Auth expired — log in again'); openLogin(); }
     else { const e = await r.json().catch(() => ({})); toast('Publish failed: ' + (e.error || r.status)); }
   } catch (e) { toast('Network error'); }
@@ -311,7 +509,7 @@ async function doPublish(msg, pass) {
 async function pollDeploy(expected, left = 20) {
   if (left <= 0) { toast('Committed ✓ — still deploying, check back shortly'); return; }
   await new Promise(r => setTimeout(r, 3000));
-  try { const live = await (await fetch('./data.json?t=' + Date.now(), { cache: 'no-store' })).json(); if (JSON.stringify(live) === JSON.stringify(expected)) { toast('Deployed ✓ — live now'); return; } } catch (e) {}
+  try { const live = await (await fetch('./data.json?t=' + Date.now(), { cache: 'no-store' })).json(); if (JSON.stringify(live) === JSON.stringify(expected)) { try { localStorage.removeItem(PUB_KEY); } catch (e) {} deployPending = false; toast('deployed ✓ live now'); return; } } catch (e) {}
   pollDeploy(expected, left - 1);
 }
 function postSlug(title) {
@@ -393,16 +591,20 @@ function openWin(o) {
     $('#tb-wins').appendChild(b);
   }
   o.build && o.build(w.body, w);
-  focusWin(id); syncLock(); return w;
+  if (!reduced()) { el.classList.add('opening'); el.addEventListener('animationend', () => el.classList.remove('opening'), { once: true }); }
+  playSound('open'); focusWin(id); syncLock(); return w;
 }
 function setWinTitle(id, t) { const w = wins[id]; if (!w) return; $('.ttl', w.el).textContent = t; const b = $(`.tb-btn[data-win="${id}"] span`); if (b) b.textContent = t; w.el.setAttribute('aria-label', t); }
 function focusWin(id) { const w = wins[id]; if (!w) return; if (++zTop > 380) { Object.keys(wins).sort((p, q) => (+wins[p].el.style.zIndex || 0) - (+wins[q].el.style.zIndex || 0)).forEach((k, i) => { wins[k].el.style.zIndex = 200 + i; }); zTop = 200 + Object.keys(wins).length; } w.el.style.zIndex = zTop; document.querySelectorAll('.win').forEach(x => x.classList.toggle('focused', x === w.el)); document.querySelectorAll('.tb-btn.wbtn').forEach(b => b.classList.toggle('active', b.dataset.win === id)); }
-function minWin(id, on) { const w = wins[id]; if (!w) return; w.el.classList.toggle('min', on); const b = $(`.tb-btn[data-win="${id}"]`); if (b) { b.classList.toggle('mini', on); if (on) b.classList.remove('active'); } }
+function minWin(id, on) { const w = wins[id]; if (!w) return; if (on) playSound('min'); w.el.classList.toggle('min', on); const b = $(`.tb-btn[data-win="${id}"]`); if (b) { b.classList.toggle('mini', on); if (on) b.classList.remove('active'); } }
 function closeWin(id, silent) {
   const w = wins[id]; if (!w) return;
   const prev = suppressUrl; if (silent) suppressUrl = true;
   w.o.onClose && w.o.onClose(); suppressUrl = prev;
-  w.el.remove(); delete wins[id]; $(`.tb-btn[data-win="${id}"]`)?.remove();
+  // bookkeeping is synchronous (route/restart rely on it); only the element lingers for the close animation
+  delete wins[id]; $(`.tb-btn[data-win="${id}"]`)?.remove(); w.el.removeAttribute('id'); w.el.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+  if (silent || reduced() || w.el.classList.contains('min')) w.el.remove();
+  else { playSound('close'); w.el.classList.remove('opening', 'focused'); w.el.classList.add('closing'); setTimeout(() => w.el.remove(), 190); }
   if (!Object.values(wins).some(x => x.o.dialog)) $('#scrim').hidden = true;
   const t = topWin(); if (t) focusWin(t); syncLock();
 }
@@ -413,10 +615,10 @@ function openPrefs() {
   openWin({ id: 'prefs', title: 'preferences.cfg', icon: 'about', width: 520, height: 560, build: b => {
     b.innerHTML = `<div class="frm prefs"><fieldset><legend>Wallpaper</legend><div class="wp-grid">${WALLS.map(n => `<label class="wp-opt"><input type="radio" name="wp" value="${n}"><span style="background-image:url(assets/wallpapers/${n}.webp)"></span><b>${n}</b></label>`).join('')}</div></fieldset>
       <fieldset><legend>Theme</legend>${Object.keys(THEMES).map(k => `<label class="opt"><input type="radio" name="theme" value="${k}"> ${THEMES[k]}</label>`).join('')}</fieldset>
-      <fieldset><legend>Display</legend><label class="opt"><input type="checkbox" id="pf-scan"> CRT scanlines</label></fieldset>
+      <fieldset><legend>Display</legend><label class="opt"><input type="checkbox" id="pf-scan"> CRT scanlines</label><label class="opt"><input type="checkbox" id="pf-snd"> Sounds</label></fieldset>
       <small>Saved in this browser only.</small></div>`;
-    const cur = lsGet('zine-wall') || 'waves'; $(`[name=wp][value="${cur}"]`, b).checked = true; $(`[name=theme][value="${prefs.theme}"]`, b).checked = true; $('#pf-scan', b).checked = !!prefs.scan;
-    b.addEventListener('change', e => { const t = e.target; if (t.name === 'wp') window._setWall && window._setWall(t.value); else if (t.name === 'theme') { prefs.theme = t.value; savePrefs(); applyPrefs(); } else if (t.id === 'pf-scan') { prefs.scan = t.checked; savePrefs(); applyPrefs(); } });
+    const cur = lsGet('zine-wall') || 'waves'; $(`[name=wp][value="${cur}"]`, b).checked = true; $(`[name=theme][value="${prefs.theme}"]`, b).checked = true; $('#pf-scan', b).checked = !!prefs.scan; $('#pf-snd', b).checked = !!prefs.sounds;
+    b.addEventListener('change', e => { const t = e.target; if (t.name === 'wp') window._setWall && window._setWall(t.value); else if (t.name === 'theme') { prefs.theme = t.value; savePrefs(); applyPrefs(); } else if (t.id === 'pf-scan') { prefs.scan = t.checked; savePrefs(); applyPrefs(); } else if (t.id === 'pf-snd') { prefs.sounds = t.checked; savePrefs(); if (t.checked) playSound('click'); } });
   } });
 }
 /* ═══════════ OS: wallpaper, intro, apps, zine switch, start menu, pet ═══════════ */
@@ -515,14 +717,15 @@ function buildStart() {
     <button type="button" role="menuitem" class="sm-item" data-app="terminal"><img src="assets/icons/terminal.png" alt="" width="28" height="28"><span>Terminal</span></button>
     <button type="button" role="menuitem" class="sm-item" data-sm="prefs"><span class="sm-g">⚙</span><span>Preferences</span></button>
     <button type="button" role="menuitem" class="sm-item" data-sm="restart"><span class="sm-g">⏻</span><span>Restart</span></button>
+    <button type="button" role="menuitem" class="sm-item" data-sm="publish" id="sm-publish" hidden><span class="sm-g">⇪</span><span>Publish changes</span></button>
     <button type="button" role="menuitem" class="sm-item" data-sm="admin"><span class="sm-g">●</span><span id="sm-admin">Admin login</span></button></div>`;
   $('#tb-quick').innerHTML = ['posts', 'work', 'reviews', 'about', 'zine'].map(id => `<button type="button" class="tb-btn q" data-app="${id}" aria-label="${id}"><img src="assets/icons/${id}.png" alt="" width="24" height="24"></button>`).join('');
   updateStart();
 }
-function updateStart() { const a = $('#sm-admin'); if (a) a.textContent = isAdmin() ? 'Log out (admin)' : 'Admin login'; }
-function openStart() { const m = $('#start-menu'); m.hidden = false; $('#start-btn').setAttribute('aria-expanded', 'true'); updateStart(); $('.sm-item', m).focus(); }
+function updateStart() { const a = $('#sm-admin'); if (a) a.textContent = isAdmin() ? 'Log out (admin)' : 'Admin login'; const p = $('#sm-publish'); if (p) p.hidden = !isAdmin(); }
+function openStart() { const m = $('#start-menu'); m.hidden = false; playSound('click'); $('#start-btn').setAttribute('aria-expanded', 'true'); updateStart(); $('.sm-item', m).focus(); }
 function closeStart(refocus = true) { const m = $('#start-menu'); if (m.hidden) return; m.hidden = true; $('#start-btn').setAttribute('aria-expanded', 'false'); if (refocus) $('#start-btn').focus(); }
-function startAction(a) { closeStart(false); if (a === 'prefs') openPrefs(); else if (a === 'restart') restartOS(); else if (a === 'admin') toggleAdminLogin(); }
+function startAction(a) { closeStart(false); if (a === 'prefs') openPrefs(); else if (a === 'restart') restartOS(); else if (a === 'admin') toggleAdminLogin(); else if (a === 'publish') publishToWorker(); }
 function restartOS() {
   closeAllWins(); closeStart(false); $('#term').hidden = true; scrollToOS(true); showZineHome();
   if (!reduced()) { const f = $('#crt-flash'); f.hidden = false; f.className = ''; void f.offsetWidth; f.className = 'go'; setTimeout(() => { f.hidden = true; f.className = ''; }, 1100); setTimeout(runIntro, 900); }
@@ -531,14 +734,14 @@ function restartOS() {
 /* ── desktop: draggable sticky note ── */
 function initDesktop() {
   const st = $('#sticky'), os = $('#os'); let ox = 0, oy = 0;
-  st.addEventListener('pointerdown', e => { if (mobile()) return; const r = st.getBoundingClientRect(); ox = e.clientX - r.left; oy = e.clientY - r.top; st.setPointerCapture(e.pointerId); st.classList.add('drag');
+  st.addEventListener('pointerdown', e => { if (mobile() || e.target.closest('button')) return; const r = st.getBoundingClientRect(); ox = e.clientX - r.left; oy = e.clientY - r.top; st.setPointerCapture(e.pointerId); st.classList.add('drag');
     const mv = ev => { st.style.right = 'auto'; st.style.left = Math.min(innerWidth - 80, Math.max(0, ev.clientX - ox)) + 'px'; st.style.top = Math.min(innerHeight - TB - 60, Math.max(0, ev.clientY - oy)) + 'px'; };
     const up = () => { st.classList.remove('drag'); st.removeEventListener('pointermove', mv); st.removeEventListener('pointerup', up); }; st.addEventListener('pointermove', mv); st.addEventListener('pointerup', up); });
   st.addEventListener('keydown', e => { const k = { ArrowLeft: [-12, 0], ArrowRight: [12, 0], ArrowUp: [0, -12], ArrowDown: [0, 12] }[e.key]; if (!k) return; e.preventDefault(); const r = st.getBoundingClientRect(); st.style.right = 'auto'; st.style.left = (r.left + k[0]) + 'px'; st.style.top = (r.top + k[1]) + 'px'; });
 }
 function renderSticky() {
   const paras = String(D.note || '').trim().split(/\n{2,}/), note = (paras.length > 1 ? paras.slice(1) : paras).join('\n\n').trim();
-  $('#sticky-text').textContent = note; $('#sticky').hidden = !note;
+  $('#sticky-text').textContent = note; $('#sticky-edit').hidden = !isAdmin(); $('#sticky').hidden = !note && !isAdmin();
 }
 
 /* ── desktop pet: tiny teal blob, walks along the taskbar edge ── */
@@ -594,7 +797,15 @@ document.addEventListener('click', e => {
   if (t.closest('#root-btn')) { $('#secret-pre').textContent = SECRET_NOTE; $('#secret').hidden = false; return; }
   const ac = t.closest('[data-act]'); if (!ac) { if (!t.closest('.d-icon')) document.querySelectorAll('.d-icon.sel').forEach(x => x.classList.remove('sel')); return; } const id = ac.dataset.id;
   ({ 'open-notes': () => openNotes(id), 'new-post': () => openPostEditor(), 'edit-post': () => openPostEditor(id), 'delete-post': () => deletePost(id), 'publish': publishToWorker, 'gb-send': () => submitGuestbook(ac), 'zine-home': () => zineHome(),
+     'add-paper': openAddPaper, 'ap-fetch': autofillPaper, 'ap-save': submitAddPaper, 'rate': () => setRating(id, +ac.dataset.n), 'tag-x': () => removeTag(id, ac.dataset.i),
+     'paper-save': () => savePaper(id), 'paper-del': () => deletePaper(id), 'rl-add': () => addReading(ac), 'rl-del': () => deleteReading(id),
+     'note-edit': openNoteEditor, 'note-save': saveNote, 'cv-edit': openCvEditor, 'cv-save': saveCv,
      'copy-link': () => { const u = location.origin + location.pathname + '?post=' + encodeURIComponent(id); try { navigator.clipboard.writeText(u); toast('link copied ✓'); } catch (er) { toast(u); } } }[ac.dataset.act] || (() => {}))();
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return; const t = e.target;
+  if (t.matches && t.matches('.tag-in')) { e.preventDefault(); addTag(t.dataset.id, t.value); }
+  else if (t.matches && t.matches('.rl-title,.rl-link')) { e.preventDefault(); addReading(t); }
 });
 $('#z-up').addEventListener('click', () => scrollToOS());
 $('#start-btn').addEventListener('click', () => ($('#start-menu').hidden ? openStart() : closeStart()));
