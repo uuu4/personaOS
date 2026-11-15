@@ -3,107 +3,84 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>personaOS</title>
-<meta name="description" content="A retro desktop-style library for academic papers — read, rate, annotate. Single-file static site.">
-<meta name="theme-color" content="#09080a">
+<title>internetpersona — Ali Emre Aydın</title>
+<meta name="description" content="Ali Emre Aydın: machine learning by day, things i build at 2am by night. Blog, papers, reviews and a guestbook.">
+<meta name="theme-color" content="#17110b">
 <meta name="color-scheme" content="dark">
 <meta property="og:type" content="website">
-<meta property="og:title" content="personaOS">
+<meta property="og:title" content="internetpersona">
 <meta property="og:url" content="https://internetpersona.net">
 <link rel="canonical" href="https://internetpersona.net/">
-<meta property="og:description" content="A retro desktop-style library for academic papers — read, rate, annotate.">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Paper Library — Persona OS">
-<meta name="twitter:description" content="A retro desktop-style library for academic papers.">
 <link rel="icon" href="assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Pixelify+Sans:wght@400;500;600&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-<link rel="stylesheet" href="styles.css?v=1.3">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Pixelify+Sans:wght@400;500;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&display=swap" rel="stylesheet">
+<script>(function(){var q=location.search,r=document.documentElement;if(/[?&](post|paper|view)=/.test(q)||matchMedia("(prefers-reduced-motion: reduce)").matches){r.className+=" no-intro"}else{r.className+=" booting"}})();</script>
+<link rel="stylesheet" href="zine.css?v=1">
 </head>
-<body>
+<body data-theme="warm">
+<div id="boot" aria-hidden="true"><div class="boot-in"><h1 id="boot-wm" aria-label="internetpersona"><span class="wm-a"><i style="--i:0" aria-hidden="true">i</i><i style="--i:1" aria-hidden="true">n</i><i style="--i:2" aria-hidden="true">t</i><i style="--i:3" aria-hidden="true">e</i><i style="--i:4" aria-hidden="true">r</i><i style="--i:5" aria-hidden="true">n</i><i style="--i:6" aria-hidden="true">e</i><i style="--i:7" aria-hidden="true">t</i></span><span class="wm-b"><i style="--i:8" aria-hidden="true">p</i><i style="--i:9" aria-hidden="true">e</i><i style="--i:10" aria-hidden="true">r</i><i style="--i:11" aria-hidden="true">s</i><i style="--i:12" aria-hidden="true">o</i><i style="--i:13" aria-hidden="true">n</i><i style="--i:14" aria-hidden="true">a</i></span></h1><p id="boot-line" aria-label="ali emre aydın. machine learning by day, things i build at 2am by night."><i style="--i:0" aria-hidden="true">ali</i> <i style="--i:1" aria-hidden="true">emre</i> <i style="--i:2" aria-hidden="true">aydın</i><br><i style="--i:3" aria-hidden="true">machine</i> <i style="--i:4" aria-hidden="true">learning</i> <i style="--i:5" aria-hidden="true">by</i> <i style="--i:6" aria-hidden="true">day,</i> <i style="--i:7" aria-hidden="true">things</i> <i style="--i:8" aria-hidden="true">i</i> <i style="--i:9" aria-hidden="true">build</i> <i style="--i:10" aria-hidden="true">at</i> <i style="--i:11" aria-hidden="true">2am</i> <i style="--i:12" aria-hidden="true">by</i> <i style="--i:13" aria-hidden="true">night.</i></p></div></div>
+<canvas id="matrix" aria-hidden="true"></canvas>
 
-<div id="desktop">
-  <div class="d-icon" id="icon-reviews" tabindex="0" role="button" aria-label="Open Reviews" ondblclick="openReviews()" onclick="selectIcon('icon-reviews')">
-    <div class="icon-img"><img src="assets/icons/reviews.png" alt=""></div>
-    <div class="icon-label">Reviews</div>
-  </div>
-  <div class="d-icon" id="icon-about" tabindex="0" role="button" aria-label="Open About Me" ondblclick="openAbout()" onclick="selectIcon('icon-about')">
-    <div class="icon-img"><img src="assets/icons/about.png" alt=""></div>
-    <div class="icon-label">About Me</div>
-  </div>
-  <div class="d-icon" id="icon-work" tabindex="0" role="button" aria-label="Open Work" ondblclick="openWork()" onclick="selectIcon('icon-work')">
-    <div class="icon-img"><img src="assets/icons/work.png" alt=""></div>
-    <div class="icon-label">Work</div>
-  </div>
-  <div class="d-icon" id="icon-posts" tabindex="0" role="button" aria-label="Open Posts" ondblclick="openPosts()" onclick="selectIcon('icon-posts')">
-    <div class="icon-img"><img src="assets/icons/posts.png" alt=""></div>
-    <div class="icon-label">Posts</div>
-  </div>
-  <div class="d-icon" id="icon-guestbook" tabindex="0" role="button" aria-label="Open Guestbook" ondblclick="openGuestbook()" onclick="selectIcon('icon-guestbook')">
-    <div class="icon-img"><img src="assets/icons/guestbook.png" alt=""></div>
-    <div class="icon-label">Guestbook</div>
-  </div>
-  <div class="d-icon" id="icon-reading" tabindex="0" role="button" aria-label="Open Reading List" ondblclick="openReadingList()" onclick="selectIcon('icon-reading')">
-    <div class="icon-img"><img src="assets/icons/reading.png" alt=""></div>
-    <div class="icon-label">Reading List</div>
-  </div>
-  <div class="d-icon" id="icon-terminal" tabindex="0" role="button" aria-label="Open Terminal" ondblclick="openTerminal()" onclick="selectIcon('icon-terminal')">
-    <div class="icon-img"><img src="assets/icons/terminal.png" alt=""></div>
-    <div class="icon-label">Terminal</div>
-  </div>
-  <div class="d-icon secret" id="icon-classified" tabindex="0" role="button" aria-label="Open classified" ondblclick="openClassified()" onclick="selectIcon('icon-classified')">
-    <div class="icon-img"><img src="assets/icons/root.png" alt=""></div>
-    <div class="icon-label">root</div>
-  </div>
+<div id="os">
+  <canvas id="art" width="480" height="269" aria-hidden="true"></canvas>
+  <div class="os-shade" aria-hidden="true"></div>
+  <nav class="desk-icons" aria-label="Desktop">
+    <button type="button" class="d-icon" data-app="posts"><img src="assets/icons/posts.png" alt="" width="48" height="48"><span>Posts</span></button>
+    <button type="button" class="d-icon" data-app="work"><img src="assets/icons/work.png" alt="" width="48" height="48"><span>Work</span></button>
+    <button type="button" class="d-icon" data-app="reviews"><img src="assets/icons/reviews.png" alt="" width="48" height="48"><span>Reviews</span></button>
+    <button type="button" class="d-icon" data-app="reading"><img src="assets/icons/reading.png" alt="" width="48" height="48"><span>Reading</span></button>
+    <button type="button" class="d-icon" data-app="about"><img src="assets/icons/about.png" alt="" width="48" height="48"><span>About</span></button>
+    <button type="button" class="d-icon" data-app="guestbook"><img src="assets/icons/guestbook.png" alt="" width="48" height="48"><span>Guestbook</span></button>
+    <button type="button" class="d-icon" data-app="terminal"><img src="assets/icons/terminal.png" alt="" width="48" height="48"><span>Terminal</span></button>
+    <button type="button" class="d-icon" data-app="zine"><img src="assets/icons/zine.png" alt="" width="48" height="48"><span>Zine</span></button>
+    <button type="button" class="d-icon" id="root-btn" hidden><img src="assets/icons/root.png" alt="" width="48" height="48"><span>root</span></button>
+  </nav>
+  <aside id="sticky" class="sticky" tabindex="0" aria-label="Sticky note (draggable)"><div id="sticky-text"></div></aside>
 </div>
 
-<div id="preview-card" class="preview-card">
-  <div class="pc-title" id="pc-title"></div>
-  <div class="pc-meta"  id="pc-meta"></div>
-  <div class="pc-stars" id="pc-stars"></div>
-</div>
-
-<div id="taskbar">
-  <button id="start-btn" onclick="toggleStartMenu()">⊞ PERSONA OS</button>
-  <div class="task-sep"></div>
-  <div id="taskbar-items"></div>
-  <div id="tray"><span id="admin-badge" class="locked" onclick="toggleAdminLogin()" title="Admin login">GUEST</span><span id="clock">--:--</span></div>
-</div>
-
-<div id="start-menu">
-  <div class="menu-strip">Persona OS</div>
-  <div class="menu-items">
-    <div class="menu-item" onclick="openReviews();closeStartMenu()">📁 Reviews</div>
-    <div class="menu-item" onclick="openAbout();closeStartMenu()">🪪 About Me</div>
-    <div class="menu-item" onclick="openWork();closeStartMenu()">⚛️ Work</div>
-    <div class="menu-item" onclick="openPosts();closeStartMenu()">📜 Posts</div>
-    <div class="menu-item" onclick="openGuestbook();closeStartMenu()">📬 Guestbook</div>
-    <div class="menu-item" onclick="openReadingList();closeStartMenu()">📚 Reading List</div>
-    <div class="menu-item" onclick="openAddPaper();closeStartMenu()">📄 Add Paper</div>
-    <div class="menu-item" onclick="openPreferences();closeStartMenu()">⚙ Preferences</div>
-    <div class="menu-item" onclick="closeStartMenu();restartOS()">⏻ Restart</div>
+<div id="os-spacer" aria-hidden="true"></div>
+<div id="zine" aria-label="Zine">
+  <div class="z-bar"><button type="button" id="z-up" class="btn z-up">&#9650; back to OS</button></div>
+  <div id="z-home">
+    <header class="zcover">
+      <div class="zcover-in"><h1 id="wordmark" aria-label="internetpersona"><span class="wm-a">internet</span><span class="wm-b">persona</span></h1>
+      <p class="zline">ali emre aydın<br>machine learning by day, things i build at 2am by night.</p></div>
+    </header>
+    <section class="band band--paper" id="z-posts" aria-label="Posts"></section>
+    <section class="band band--dark" id="z-work" aria-label="Work"></section>
+    <section class="band band--teal" id="z-reviews" aria-label="Reviews"></section>
+    <section class="band band--paper" id="z-reading" aria-label="Reading list"></section>
+    <section class="band band--dark" id="z-about" aria-label="About"></section>
+    <section class="band band--amber" id="z-guestbook" aria-label="Guestbook"></section>
   </div>
+  <article id="z-reader" class="band band--paper" hidden></article>
 </div>
 
-<div id="ctx-menu">
-  <div class="ctx-item" onclick="openReviews();closeCtx()">📁 Open Reviews</div>
-  <div class="ctx-item" onclick="openAbout();closeCtx()">🪪 About Me</div>
-  <div class="ctx-sep"></div>
-  <div class="ctx-item" id="ctx-note-item" onclick="openStickyEditor();closeCtx()" style="display:none">📝 Edit Note</div>
-  <div class="ctx-item" onclick="openPreferences();closeCtx()">⚙ Preferences</div>
+<div id="dim" aria-hidden="true"></div>
+<div id="glyph" aria-hidden="true"><span class="g-pause"><b class="sh"></b><b class="sh s2"></b><b class="fg"></b><b class="fg s2"></b></span><span class="g-play"><b class="sh"></b><b class="fg"></b></span></div>
+<button type="button" id="scroll-hint" aria-label="scroll down to the zine">scroll <span aria-hidden="true">&#9662;</span></button>
+<div id="pet-layer" aria-hidden="true"><canvas id="pet" width="16" height="20"></canvas></div>
+
+<div id="scrim" hidden></div>
+<div id="start-menu" hidden role="menu" aria-label="Start menu"></div>
+<div id="taskbar" role="toolbar" aria-label="Taskbar">
+  <button type="button" id="start-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="start-menu"><span class="sb-ic">&#8862;</span><span class="sb-lbl"> START</span></button>
+  <div id="tb-quick"></div>
+  <div id="tb-wins"></div>
+  <div id="tray"><button type="button" id="admin-badge" class="locked" title="Admin login"><i></i><span>GUEST</span></button><span id="clock">--:--</span></div>
 </div>
 
+<div id="term" hidden role="dialog" aria-label="Terminal">
+  <div class="term-bar"><span>terminal</span><button type="button" id="term-x" aria-label="Close terminal">x</button></div>
+  <div id="term-out" tabindex="-1"></div>
+  <div class="term-row"><span>&#10095;</span><input id="term-in" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="type help"></div>
+</div>
+<div id="secret" hidden role="dialog" aria-label="classified"><div class="secret-box"><button type="button" id="secret-x" class="linkbtn">[close]</button><pre id="secret-pre"></pre></div></div>
 <div id="toast" role="status" aria-live="polite"></div>
-<div id="sticky-note" class="hidden"></div>
+<div id="crt-flash" hidden aria-hidden="true"></div>
 
-<!-- CRT overlay: static vignette + tube glow (paired with scanlines + aperture mask in CSS) -->
-<div id="crt-vignette"></div>
-
-<!-- Matrix rain wallpaper — only drawn in hacker mode -->
-<canvas id="matrix"></canvas>
-
-<script src="app.js?v=1.3"></script>
+<script src="pet.js?v=3"></script>
+<script src="zine.js?v=1"></script>
 </body>
 </html>
