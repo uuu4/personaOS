@@ -136,12 +136,12 @@ function fillGh(el) {
 
 /* ═══════════ CONTENT: one source (data.json), two views (OS windows / zine) ═══════════ */
 const APPS = {
-  posts: { file: 'posts.exe', label: 'Posts', w: 480, h: 520 },
-  work: { file: 'work/', label: 'Work', w: 520, h: 560 },
-  reviews: { file: 'reviews/', label: 'Reviews', w: 560, h: 520 },
-  reading: { file: 'reading.txt', label: 'Reading', w: 400, h: 460 },
-  about: { file: 'about_me.cv', label: 'About', w: 560, h: 740 },
-  guestbook: { file: 'guestbook', label: 'Guestbook', w: 420, h: 540 },
+  posts: { file: 'posts.exe', label: 'Posts', w: 420, h: 440 },
+  work: { file: 'work/', label: 'Work', w: 440, h: 460 },
+  reviews: { file: 'reviews/', label: 'Reviews', w: 480, h: 440 },
+  reading: { file: 'reading.txt', label: 'Reading', w: 360, h: 400 },
+  about: { file: 'about_me.cv', label: 'About', w: 500, h: 540 },
+  guestbook: { file: 'guestbook', label: 'Guestbook', w: 380, h: 460 },
 };
 const mounts = [];
 function mount(id, el, mode) { mounts.push({ id, el, mode }); R[id](el, mode); hydrate(el); }
@@ -243,7 +243,7 @@ function renderPost(p, zine) {
 function openPost(id, push = true, zine = false) {
   const p = D.posts.find(x => x.id === id); if (!p) return;
   if (zine) { renderPost(p, true); if (push) { try { history.replaceState({}, '', location.pathname + '?view=zine&post=' + encodeURIComponent(id)); } catch (e) {} } return; }
-  openWin({ id: 'reader', side: true, title: p.id + '.md', icon: 'posts', width: 640, height: 640, progress: true, onClose: () => { document.title = DOC_TITLE; clearUrl('post'); } });
+  openWin({ id: 'reader', side: true, title: p.id + '.md', icon: 'posts', width: 560, height: 560, progress: true, onClose: () => { document.title = DOC_TITLE; clearUrl('post'); } });
   renderPost(p); if (push && new URLSearchParams(location.search).get('post') !== id) setUrl('?post=' + encodeURIComponent(id));
 }
 const paperMeta = p => [String(p.authors || '').trim(), [p.venue && p.venue !== '—' ? p.venue : '', p.year || ''].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
@@ -268,7 +268,7 @@ function refreshPaperWins() {
 function openNotes(id, push = true) {
   const p = D.papers.find(x => x.id === id); if (!p) return;
   const slug = String(p.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 26);
-  openWin({ id: 'notes-' + id, side: true, title: slug + '.txt', icon: 'reviews', width: 640, height: 640, onClose: () => clearUrl('paper'), build: b => paperBody(b, p) });
+  openWin({ id: 'notes-' + id, side: true, title: slug + '.txt', icon: 'reviews', width: 540, height: 540, onClose: () => clearUrl('paper'), build: b => paperBody(b, p) });
   if (push && new URLSearchParams(location.search).get('paper') !== id) setUrl('?paper=' + encodeURIComponent(id));
 }
 
@@ -287,7 +287,7 @@ function savePaper(id) {
 function deletePaper(id) { themedConfirm('Remove this paper from reviews?', () => { D.papers = D.papers.filter(x => x.id !== id); closeWin('notes-' + id); paperChanged(null, 'paper removed (draft)'); }, { confirmLabel: 'Remove' }); }
 function openAddPaper() {
   if (!isAdmin()) { toast('Admin only'); return; }
-  openWin({ id: 'add-paper', title: 'add_paper.txt', icon: 'reviews', width: 560, height: 680, build: b => {
+  openWin({ id: 'add-paper', title: 'add_paper.txt', icon: 'reviews', width: 500, height: 580, build: b => {
     b.innerHTML = `<div class="frm"><label for="ap-fetch">auto-fill from arXiv / DOI / link</label><div class="frm-row ap-fetch-row"><input id="ap-fetch" placeholder="arxiv.org/abs/… · 10.1038/… · 2303.14307"><button class="btn" type="button" id="ap-fetch-btn" data-act="ap-fetch">fetch</button></div><div id="ap-msg" class="frm-msg" role="status"></div>
       <label for="ap-title">title *</label><input id="ap-title"><label for="ap-authors">authors</label><input id="ap-authors">
       <div class="frm-row frm-2"><span><label for="ap-year">year</label><input id="ap-year" type="number" placeholder="${new Date().getFullYear()}"></span><span><label for="ap-venue">venue</label><input id="ap-venue"></span></div>
@@ -325,7 +325,7 @@ function addReading(btn) {
 function deleteReading(id) { const it = D.readingList.find(x => x.id === id); if (!it) return; themedConfirm(`Remove "${it.title}"?`, () => { D.readingList = D.readingList.filter(x => x.id !== id); saveDraft('readingList'); refreshMounts(); }, { confirmLabel: 'Remove' }); }
 function openNoteEditor() {
   if (!isAdmin()) return;
-  openWin({ id: 'note-editor', title: 'sticky_note.txt', icon: 'about', width: 440, height: 440, build: b => {
+  openWin({ id: 'note-editor', title: 'sticky_note.txt', icon: 'about', width: 400, height: 380, build: b => {
     b.innerHTML = `<div class="frm"><label for="ne-text">sticky note <small>(the first paragraph stays hidden on the desktop)</small></label><textarea id="ne-text" rows="9">${esc(D.note || '')}</textarea><div class="frm-row"><button class="btn" type="button" data-act="note-save">save draft</button><button class="btn btn--ghost" type="button" data-close="note-editor">Cancel</button></div></div>`;
     setTimeout(() => $('#ne-text', b)?.focus(), 60);
   } });
@@ -334,7 +334,7 @@ function saveNote() { const t = $('#ne-text'); if (!t) return; D.note = t.value;
 const CV_FIELDS = [['name', 'name'], ['role', 'role'], ['affiliation', 'affiliation'], ['bio', 'bio', 1], ['interests', 'interests (comma separated)'], ['email', 'email'], ['website', 'website'], ['cvUrl', 'cv pdf link'], ['github', 'github username']];
 function openCvEditor() {
   if (!isAdmin()) return; const cv = D.cv || {};
-  openWin({ id: 'cv-editor', title: 'edit_profile.cfg', icon: 'about', width: 560, height: 680, build: b => {
+  openWin({ id: 'cv-editor', title: 'edit_profile.cfg', icon: 'about', width: 480, height: 580, build: b => {
     b.innerHTML = `<div class="frm">${CV_FIELDS.map(([k, l, ta]) => `<label for="cv-${k}">${l}</label>${ta ? `<textarea id="cv-${k}" rows="4">${esc(cv[k] || '')}</textarea>` : `<input id="cv-${k}" value="${esc(cv[k] || (k === 'github' ? 'uuu4' : ''))}">`}`).join('')}
       <div class="frm-row"><button class="btn" type="button" data-act="cv-save">save draft</button><button class="btn btn--ghost" type="button" data-close="cv-editor">Cancel</button></div></div>`;
   } });
@@ -519,7 +519,7 @@ function postSlug(title) {
 function openPostEditor(id) {
   if (!isAdmin()) { toast('Admin only'); return; }
   const p = id ? D.posts.find(x => x.id === id) : null;
-  openWin({ id: 'post-editor', title: p ? 'edit_post.md' : 'new_post.md', icon: 'posts', width: 640, height: 700, build: b => {
+  openWin({ id: 'post-editor', title: p ? 'edit_post.md' : 'new_post.md', icon: 'posts', width: 560, height: 600, build: b => {
     b.innerHTML = `<div class="frm"><label for="pe-title">Title *</label><input id="pe-title" value="${esc(p?.title || '')}">
       <label for="pe-date">Date</label><input id="pe-date" type="date" value="${esc(p?.date || new Date().toISOString().slice(0, 10))}">
       <label for="pe-summary">Summary (one line)</label><input id="pe-summary" value="${esc(p?.summary || '')}">
@@ -566,7 +566,7 @@ function openWin(o) {
   const w = { el, o, body: $('.wbody', el) }; wins[id] = w;
   if (o.dialog) { el.style.width = 'min(420px,92vw)'; $('#scrim').hidden = false; }
   else {
-    const W = Math.min(o.width || 560, innerWidth - 24), H = Math.min(o.height || 520, innerHeight - TB - 24), n = Math.max(0, Object.values(wins).filter(x => !x.o.dialog).length - 1) % 7;
+    const W = Math.min(o.width || 560, innerWidth - 24), H = Math.min(o.height || 520, innerHeight - TB - 24, Math.max(320, Math.round((innerHeight - TB) * .72))), n = Math.max(0, Object.values(wins).filter(x => !x.o.dialog).length - 1) % 7;
     const minL = innerWidth > 900 ? 150 : 8; let left = minL + 20 + n * 44, top = 22 + n * 38;
     if (o.side) { left = Math.max(minL, innerWidth - W - 36 - (n % 3) * 26); top = 26 + (n % 3) * 30; }
     if (left + W > innerWidth - 8) left = Math.max(minL, innerWidth - W - 12 - (n % 3) * 20); if (top + H > innerHeight - TB - 8) top = Math.max(8, innerHeight - TB - H - 8);
@@ -612,7 +612,7 @@ function topWin() { let best = null, z = -1; Object.keys(wins).forEach(id => { c
 function closeAllWins() { Object.keys(wins).forEach(id => closeWin(id, true)); }
 
 function openPrefs() {
-  openWin({ id: 'prefs', title: 'preferences.cfg', icon: 'about', width: 520, height: 560, build: b => {
+  openWin({ id: 'prefs', title: 'preferences.cfg', icon: 'about', width: 460, height: 480, build: b => {
     b.innerHTML = `<div class="frm prefs"><fieldset><legend>Wallpaper</legend><div class="wp-grid">${WALLS.map(n => `<label class="wp-opt"><input type="radio" name="wp" value="${n}"><span style="background-image:url(assets/wallpapers/${n}.webp)"></span><b>${n}</b></label>`).join('')}</div></fieldset>
       <fieldset><legend>Theme</legend>${Object.keys(THEMES).map(k => `<label class="opt"><input type="radio" name="theme" value="${k}"> ${THEMES[k]}</label>`).join('')}</fieldset>
       <fieldset><legend>Display</legend><label class="opt"><input type="checkbox" id="pf-scan"> CRT scanlines</label><label class="opt"><input type="checkbox" id="pf-snd"> Sounds</label></fieldset>
@@ -719,7 +719,7 @@ function buildStart() {
     <button type="button" role="menuitem" class="sm-item" data-sm="restart"><span class="sm-g">⏻</span><span>Restart</span></button>
     <button type="button" role="menuitem" class="sm-item" data-sm="publish" id="sm-publish" hidden><span class="sm-g">⇪</span><span>Publish changes</span></button>
     <button type="button" role="menuitem" class="sm-item" data-sm="admin"><span class="sm-g">●</span><span id="sm-admin">Admin login</span></button></div>`;
-  $('#tb-quick').innerHTML = ['posts', 'work', 'reviews', 'about', 'zine'].map(id => `<button type="button" class="tb-btn q" data-app="${id}" aria-label="${id}"><img src="assets/icons/${id}.png" alt="" width="24" height="24"></button>`).join('');
+  $('#tb-quick').innerHTML = ['posts', 'work', 'reviews', 'about'].map(id => `<button type="button" class="tb-btn q" data-app="${id}" aria-label="${id}"><img src="assets/icons/${id}.png" alt="" width="24" height="24"></button>`).join('');
   updateStart();
 }
 function updateStart() { const a = $('#sm-admin'); if (a) a.textContent = isAdmin() ? 'Log out (admin)' : 'Admin login'; const p = $('#sm-publish'); if (p) p.hidden = !isAdmin(); }
@@ -851,14 +851,12 @@ async function boot() {
 }
 boot();
 
-/* scroll hint: one small nudge that the zine lives below the OS */
+/* scroll hint: a quiet "scroll ▾" in the middle of the desktop on every visit (the zine has no desktop icon), hidden once you start scrolling */
 (function scrollHint() {
   const h = $('#scroll-hint'); if (!h) return;
-  let seen = false; try { seen = localStorage.getItem('pl-scrolled') === '1'; } catch (e) {}
-  if (seen) { h.classList.add('gone'); return; }
-  const hide = () => { h.classList.add('gone'); try { localStorage.setItem('pl-scrolled', '1'); } catch (e) {} window.removeEventListener('scroll', onScroll); };
-  const onScroll = () => { if (window.scrollY > 24) hide(); };
-  window.addEventListener('scroll', onScroll, { passive: true });
+  try { localStorage.removeItem('pl-scrolled'); } catch (e) {}
+  const upd = () => h.classList.toggle('away', window.scrollY > 24);
+  window.addEventListener('scroll', upd, { passive: true }); upd();
   h.addEventListener('click', () => { window.scrollTo({ top: zineTop(), behavior: reduced() ? 'auto' : 'smooth' }); });
   setTimeout(() => h.classList.add('show'), 1200);
 })();
