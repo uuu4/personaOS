@@ -89,6 +89,15 @@ body.hacker .star.lit{background:#00ff41}
 .prose a{color:var(--page-link);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
 .prose code{font-family:var(--f-mono);font-size:.84em;background:var(--paper-2);padding:.1em .35em;border:1px solid rgba(0,0,0,.25)}
 body.hacker .prose code{background:#002a00}
+.prose figure{margin:1.4em 0}
+.prose figure img{display:block;max-width:100%;height:auto;margin:0 auto;border:2px solid rgba(0,0,0,.35);background:#fff}
+.prose pre{font-family:var(--f-mono);font-size:.8em;line-height:1.5;background:var(--paper-2);border:1px solid rgba(0,0,0,.25);padding:.8em 1em;overflow-x:auto;margin:0 0 1.2em}
+.prose pre code{background:none;border:0;padding:0;font-size:1em}
+.prose .tbl{overflow-x:auto;margin:0 0 1.2em}
+.prose table{border-collapse:collapse;font-size:.8em;line-height:1.4;min-width:100%}
+.prose th,.prose td{border:1px solid rgba(0,0,0,.3);padding:.35em .55em;text-align:left;vertical-align:top}
+.prose th{background:var(--paper-2);font-weight:700}
+body.hacker .prose pre,body.hacker .prose th{background:#002a00}
 
 /* ── content (windows + zine share these) ── */
 .post-list{list-style:none}

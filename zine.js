@@ -18,6 +18,7 @@ const sortedPosts = () => [...D.posts].sort((a, b) => String(b.date).localeCompa
 function mdInline(s) {
   return s.replace(/`([^`]+)`/g, '<code>$1</code>')
           .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+          .replace(/(^|[^\w*])\*([^*\s][^*]*?)\*(?![\w*])/g, '$1<i>$2</i>')
           .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 }
 function mdToHtml(src) {
@@ -26,6 +27,12 @@ function mdToHtml(src) {
     let head = '';
     if (/^## /.test(lines[0])) { head = `<h3>${mdInline(esc(lines[0].slice(3)))}</h3>`; lines = lines.slice(1); if (!lines.length) return head; }
     if (lines.every(l => /^- /.test(l))) return head + `<ul>${lines.map(l => `<li>${mdInline(esc(l.slice(2)))}</li>`).join('')}</ul>`;
+    if (/^```/.test(lines[0]) && /^```\s*$/.test(lines[lines.length - 1]) && lines.length > 1) return head + `<pre><code>${esc(b.replace(/^[\s\S]*?```[^\n]*\n/, '').replace(/\n```\s*$/, ''))}</code></pre>`;
+    if (lines.every(l => /^!\[[^\]]*\]\(((assets\/[\w\/.-]+)|(https:\/\/[^)\s]+))\)$/.test(l))) return head + lines.map(l => { const m = l.match(/^!\[([^\]]*)\]\(([^)]+)\)$/); return `<figure><img src="${esc(m[2])}" alt="${esc(m[1])}" loading="lazy" decoding="async"></figure>`; }).join('');
+    if (lines.length > 1 && lines.every(l => /^\|.*\|\s*$/.test(l)) && /^\|[\s:|-]+\|\s*$/.test(lines[1])) {
+      const cells = l => l.trim().slice(1, -1).split('|').map(c => mdInline(esc(c.trim())));
+      return head + `<div class="tbl"><table><thead><tr>${cells(lines[0]).map(c => `<th>${c}</th>`).join('')}</tr></thead><tbody>${lines.slice(2).map(r => `<tr>${cells(r).map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    }
     return head + `<p>${lines.map(l => mdInline(esc(l))).join('<br>')}</p>`;
   }).join('');
 }
